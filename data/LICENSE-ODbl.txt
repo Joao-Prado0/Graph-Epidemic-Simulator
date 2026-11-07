@@ -538,3 +538,7 @@ applicable copyright law and Database Rights in the relevant
 jurisdiction includes additional rights not granted under this License,
 these additional rights are granted in this License in order to meet the
 terms of this License.
+
+---
+
+Contém dados do OpenFlights (openflights.org/data.php), sob ODbL 1.0; conteúdos sob DbCL.

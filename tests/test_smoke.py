@@ -2,7 +2,7 @@ import importlib
 
 
 def test_dependencias_importam():
-    for nome in ("PySide6", "pyqtgraph"):
+    for nome in ("PySide6", "pyqtgraph", "numpy"):
         importlib.import_module(nome)
 
 

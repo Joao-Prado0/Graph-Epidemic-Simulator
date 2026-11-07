@@ -5,8 +5,8 @@ import pytest
 
 RAIZ = Path(__file__).resolve().parents[1]
 
-# Trocar para True quando o professor confirmar o uso de NumPy no núcleo do grafo.
-NUMPY_LIBERADO = False
+# Liberado pelo professor em 03/11/2026 (Decisão D17).
+NUMPY_LIBERADO = True
 
 
 def _arquivos_que_importam(modulo: str) -> list[Path]:
