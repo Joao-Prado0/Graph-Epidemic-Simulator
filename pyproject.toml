@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "epidemia"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "TID"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"networkx".msg = "NetworkX só é permitido em benchmarks/ (comparação de desempenho)."
+
+[tool.ruff.lint.per-file-ignores]
+"benchmarks/**" = ["TID251"]
