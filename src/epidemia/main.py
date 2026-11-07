@@ -63,9 +63,9 @@ class Mapa(QWidget):
             estados = self._historico[self._dia]
             largura, altura = self.width(), self.height()
             grupos = [QPolygonF() for _ in CORES]
-            for (x, y), estado in zip(self._pontos, estados):
+            for (x, y), estado in zip(self._pontos, estados, strict=True):
                 grupos[estado].append(QPointF(x * largura, y * altura))
-            for cor, grupo in zip(CORES, grupos):
+            for cor, grupo in zip(CORES, grupos, strict=True):
                 caneta = QPen(cor)
                 caneta.setWidth(4)
                 caneta.setCapStyle(Qt.RoundCap)
@@ -117,9 +117,10 @@ class Janela(QMainWindow):
         fps = self.mapa.quadros / (agora - self._t0)
         self.mapa.quadros = 0
         self._t0 = agora
-        self.rotulo.setText(
-            f"{N_VERTICES} vertices | FPS: {fps:.1f} | dias gravados: {len(self.historico)}"
-        )
+        texto = f"{N_VERTICES} vertices | FPS: {fps:.1f} | dias gravados: {len(self.historico)}"
+        self.rotulo.setText(texto)
+        self.setWindowTitle(f"Simulador de Epidemias - {fps:.1f} FPS")
+        print(texto)
 
     def closeEvent(self, evento):
         self.simulador.requestInterruption()

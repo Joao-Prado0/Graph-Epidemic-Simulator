@@ -35,7 +35,7 @@ O ambiente foi desenhado a partir das decisões já fechadas:
 
 ## 1. Instalar as ferramentas (todos)
 
-1. **Python 3.12.x** em python.org/downloads (a mesma versão 3.12 para todos). No instalador, marque **"Add python.exe to PATH"** e mantenha o **py launcher**.
+1. **Python 3.12.10** em python.org/downloads (a mesma versão 3.12 para todos). No instalador, marque **"Add python.exe to PATH"** e mantenha o **py launcher**.
 2. **Git for Windows** em git-scm.com (opções padrão).
 3. **VS Code** em code.visualstudio.com.
 4. Conta no **GitHub**, com o mesmo e-mail que será usado nos commits.
@@ -49,19 +49,6 @@ code --version
 ```
 
 Se `py -3.12` falhar, o Windows pode estar usando o atalho da Microsoft Store. Vá em Configurações, Aplicativos, Configurações avançadas, Aliases de execução de aplicativo, e desligue `python.exe` e `python3.exe`.
-
-## 2. Configurar o Git (todos)
-
-Os commits individuais serão avaliados, então cada pessoa precisa do **próprio nome e e-mail**, o mesmo do GitHub:
-
-```powershell
-git config --global user.name "Seu Nome"
-git config --global user.email "seu-email@exemplo.com"
-git config --global core.autocrlf true
-git config --global init.defaultBranch main
-```
-
-Commit com e-mail diferente do cadastrado no GitHub não aparece como contribuição da pessoa. Vale conferir isso com cada integrante.
 
 ## 3. Criar o repositório no GitHub (uma pessoa)
 
@@ -547,7 +534,7 @@ py -3.12 -m venv .venv
 python --version
 ```
 
-Deve mostrar 3.12.x. Se mostrar outra versão, apague a pasta `.venv` e refaça. Se o PowerShell bloquear o script de ativação, rode uma vez:
+Deve mostrar 3.12.10. Se mostrar outra versão, apague a pasta `.venv` e refaça. Se o PowerShell bloquear o script de ativação, rode uma vez:
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
@@ -599,7 +586,7 @@ ruff check .
 ruff format --check .
 ```
 
-A janela da prova de conceito deve abrir, mostrando 8 mil pontos mudando de cor, uma curva de infectados e, embaixo, a linha com o FPS. Deixe rodar uns 10 segundos e **anote o FPS**, que é o primeiro dado do benchmark do RNF02 (meta de 20 quadros por segundo ou mais). Feche a janela pelo X e confirme que o processo termina sem travar, o que valida o encerramento da thread.
+A janela da prova de conceito deve abrir, mostrando 8 mil pontos mudando de cor, uma curva de infectados e, embaixo, a linha com o FPS. Deixe rodar uns 10 segundos e **anote o FPS**, que é o primeiro dado do benchmark do RNF02 (meta de 20 quadros por segundo ou mais). Feche a janela pelo X e confirme que o processo termina sem travar, o que valida o encerramento da thread. (João Prado 07/11 fps com media em 40)
 
 Depois gere o executável:
 
@@ -609,16 +596,7 @@ Depois gere o executável:
 
 O resultado fica em `dist\SimuladorEpidemias\`. Abra o `.exe` **fora do VS Code** e veja se a janela aparece e se o FPS é parecido com o do modo normal. A pasta é mais confiável com Qt que `--onefile`, que abre mais devagar; o formato final do executável fica para a fase de empacotamento.
 
-Se o Windows Defender marcar o executável como suspeito (acontece com executáveis gerados por PyInstaller), anote, porque isso precisa ser considerado na entrega. Nuitka só entra se houver problema de build ou de desempenho.
-
-## 10. Rotina de Git do grupo
-
-1. Cada tarefa em uma **branch própria**: `git switch -c feat/nome-da-tarefa`.
-2. Commits pequenos e frequentes, com mensagens descritivas (`Adiciona BFS ao nucleo do grafo`), porque os commits individuais serão avaliados.
-3. Abrir **pull request** e pedir revisão de pelo menos uma pessoa.
-4. Antes de começar o dia: `git switch main` e `git pull`.
-5. Nunca versionar `.venv`, `.venv-data`, `dist/`, `build/` nem os brutos dos datasets. Só `data/processed/`, o script, a tabela de apelidos e a licença dos dados entram no Git.
-6. Cada integrante verifica, no GitHub, se seus commits aparecem com o seu nome.
+Se o Windows Defender marcar o executável como suspeito (acontece com executáveis gerados por PyInstaller), anote, porque isso precisa ser considerado na entrega. Nuitka só entra se houver problema de build ou de desempenho. (João Prado 07/11 não aconteceu, abriu normal)
 
 ## 11. Fixar as versões (uma pessoa, depois que todos validarem)
 
@@ -642,7 +620,7 @@ Cada integrante devolve ao grupo:
 
 | Item | Resultado |
 |---|---|
-| `python --version` dentro do `.venv` | 3.12.x |
+| `python --version` dentro do `.venv` | 3.12.10 |
 | `pip install -r requirements-dev.txt` e `pip install -e .` sem erro | sim/não |
 | Janela da prova de conceito abre e fecha sem travar | sim/não |
 | FPS com 8.000 vértices (modo Python) | número |
