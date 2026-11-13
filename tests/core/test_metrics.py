@@ -1,4 +1,4 @@
-"""Testes unitários das métricas de grau e agrupamento (M2 — RF18)."""
+"""Testes unitários das métricas de grau, agrupamento e intermediação (M2 — RF18)."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import pytest
 from epidemia.core.analysis import (
     average_clustering_coefficient,
     average_degree,
+    betweenness_centrality,
     clustering_coefficients,
     degrees,
     local_clustering_coefficient,
@@ -111,3 +112,75 @@ def test_local_clustering_out_of_bounds_raises(path_graph: SimpleTestGraph) -> N
         local_clustering_coefficient(path_graph, -1)
     with pytest.raises(ValueError):
         local_clustering_coefficient(path_graph, 4)
+
+
+def test_betweenness_empty_and_small_graphs(empty_graph: SimpleTestGraph) -> None:
+    assert betweenness_centrality(SimpleTestGraph(0)) == {}
+    assert betweenness_centrality(SimpleTestGraph(2)) == {0: 0.0, 1: 0.0}
+    assert betweenness_centrality(empty_graph) == {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0}
+
+
+def test_betweenness_path_graph(path_graph: SimpleTestGraph) -> None:
+    # Em P4 (0 - 1 - 2 - 3):
+    # Vértice 1 está nos caminhos (0,2) e (0,3) -> 2 caminhos não ordenados.
+    # Total de pares sem o próprio vértice = (4-1)*(4-2)/2 = 3 -> normalizado = 2/3.
+    bc_unnorm = betweenness_centrality(path_graph, normalized=False)
+    assert bc_unnorm[0] == pytest.approx(0.0)
+    assert bc_unnorm[1] == pytest.approx(2.0)
+    assert bc_unnorm[2] == pytest.approx(2.0)
+    assert bc_unnorm[3] == pytest.approx(0.0)
+
+    bc_norm = betweenness_centrality(path_graph, normalized=True)
+    assert bc_norm[0] == pytest.approx(0.0)
+    assert bc_norm[1] == pytest.approx(2 / 3)
+    assert bc_norm[2] == pytest.approx(2 / 3)
+    assert bc_norm[3] == pytest.approx(0.0)
+
+
+def test_betweenness_star_and_complete_graphs(
+    star_graph: SimpleTestGraph,
+    complete_graph: SimpleTestGraph,
+) -> None:
+    # Na estrela S5, o centro 0 intermedeia todos os pares entre as 4 folhas -> 1.0
+    bc_star = betweenness_centrality(star_graph, normalized=True)
+    assert bc_star[0] == pytest.approx(1.0)
+    for leaf in range(1, 5):
+        assert bc_star[leaf] == pytest.approx(0.0)
+
+    # Em K4, todos os pares têm aresta direta -> intermediação 0.0 para todos
+    bc_complete = betweenness_centrality(complete_graph, normalized=True)
+    for u in range(4):
+        assert bc_complete[u] == pytest.approx(0.0)
+
+
+def test_betweenness_cycle_graph(cycle_graph: SimpleTestGraph) -> None:
+    # Em C4 (0-1-2-3-0), os pares opostos (0,2) e (1,3) têm 2 caminhos mínimos de tamanho 2.
+    # Cada vértice recebe 0.5 não normalizado, ou 0.5 / 3 = 1/6 normalizado.
+    bc = betweenness_centrality(cycle_graph, normalized=True)
+    for u in range(4):
+        assert bc[u] == pytest.approx(1 / 6)
+
+
+def test_betweenness_bridge_triangles_and_sampling(
+    bridge_triangles_graph: SimpleTestGraph,
+) -> None:
+    # Nos dois triângulos ligados pela ponte (2, 3), o vértice 2 intermedeia
+    # todos os pares entre {0, 1} e {3, 4, 5}: 2 * 3 = 6 pares em C(5, 2) = 10 -> 0.6
+    bc_exact = betweenness_centrality(bridge_triangles_graph, normalized=True)
+    assert bc_exact[2] == pytest.approx(0.6)
+    assert bc_exact[3] == pytest.approx(0.6)
+    for u in (0, 1, 4, 5):
+        assert bc_exact[u] == pytest.approx(0.0)
+
+    # Aproximada com mesma semente deve ser 100% determinística (RN03)
+    bc_approx_a = betweenness_centrality(bridge_triangles_graph, k=3, seed=42)
+    bc_approx_b = betweenness_centrality(bridge_triangles_graph, k=3, seed=42)
+    assert bc_approx_a == bc_approx_b
+    assert bc_approx_a[2] > bc_approx_a[0]
+
+
+def test_betweenness_invalid_k_raises(path_graph: SimpleTestGraph) -> None:
+    with pytest.raises(ValueError):
+        betweenness_centrality(path_graph, k=0)
+    with pytest.raises(ValueError):
+        betweenness_centrality(path_graph, k=-2)

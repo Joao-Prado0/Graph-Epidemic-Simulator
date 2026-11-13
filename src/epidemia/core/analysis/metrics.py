@@ -1,12 +1,15 @@
 """Métricas estruturais de análise de redes (M2 — RF18).
 
-Contém funções puras para cálculo de grau de vértices, grau médio da rede e
-coeficiente de agrupamento (local e médio global), operando apenas sobre a
-biblioteca padrão do Python.
+Contém funções puras para cálculo de grau de vértices, grau médio da rede,
+coeficiente de agrupamento (local e médio global) e centralidade de
+intermediação (exata e aproximada por amostragem de fontes — algoritmo de Brandes),
+operando apenas sobre a biblioteca padrão do Python.
 """
 
 from __future__ import annotations
 
+import random
+from collections import deque
 from collections.abc import Iterable
 from typing import Any, Protocol
 
@@ -129,3 +132,86 @@ def average_clustering_coefficient(graph: GraphLike) -> float:
     if n == 0:
         return 0.0
     return sum(_clustering_from_adj(adj, u) for u in range(n)) / n
+
+
+def betweenness_centrality(
+    graph: GraphLike,
+    k: int | None = None,
+    *,
+    normalized: bool = True,
+    seed: int | random.Random | None = None,
+) -> dict[int, float]:
+    """Calcula a centralidade de intermediação (algoritmo de Brandes).
+
+    Se ``k`` for ``None`` ou ``k >= V``, calcula a intermediação exata usando
+    todos os vértices como fonte em ``O(V * (V + E))``.
+    Se ``1 <= k < V``, estima a intermediação amostrando ``k`` fontes sem
+    reposição de forma determinística (via ``seed``) em ``O(k * (V + E))``.
+
+    Parâmetros:
+        graph: Grafo não direcionado a analisar.
+        k: Número de fontes amostradas (``None`` para cálculo exato).
+        normalized: Se ``True``, normaliza por ``2 / ((V - 1) * (V - 2))`` para
+            grafos não direcionados.
+        seed: Semente inteira ou instância de ``random.Random`` para amostragem.
+    """
+    adj = _build_adj_sets(graph)
+    n = len(adj)
+    if n == 0:
+        return {}
+
+    if k is not None and k <= 0:
+        raise ValueError(f"O número de fontes amostradas k deve ser positivo: {k}")
+
+    centrality: dict[int, float] = {u: 0.0 for u in range(n)}
+    if n <= 2:
+        return centrality
+
+    if k is None or k >= n:
+        sources: list[int] = list(range(n))
+    else:
+        rng = seed if isinstance(seed, random.Random) else random.Random(seed)
+        sources = rng.sample(range(n), k)
+
+    for s in sources:
+        stack: list[int] = []
+        predecessors: list[list[int]] = [[] for _ in range(n)]
+        sigma: list[float] = [0.0] * n
+        sigma[s] = 1.0
+        dist: list[int] = [-1] * n
+        dist[s] = 0
+
+        queue: deque[int] = deque([s])
+        while queue:
+            v = queue.popleft()
+            stack.append(v)
+            d_v = dist[v]
+            sigma_v = sigma[v]
+            for w in adj[v]:
+                if dist[w] < 0:
+                    queue.append(w)
+                    dist[w] = d_v + 1
+                if dist[w] == d_v + 1:
+                    sigma[w] += sigma_v
+                    predecessors[w].append(v)
+
+        delta: list[float] = [0.0] * n
+        while stack:
+            w = stack.pop()
+            coeff = (1.0 + delta[w]) / sigma[w]
+            for v in predecessors[w]:
+                delta[v] += sigma[v] * coeff
+            if w != s:
+                centrality[w] += delta[w]
+
+    # Em grafo não direcionado, cada par {s, t} é contado duas vezes
+    scale = 0.5
+    if k is not None and k < n:
+        scale *= n / k
+    if normalized:
+        scale *= 2.0 / ((n - 1) * (n - 2))
+
+    for u in range(n):
+        centrality[u] *= scale
+
+    return centrality
