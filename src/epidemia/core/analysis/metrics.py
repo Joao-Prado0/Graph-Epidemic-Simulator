@@ -1,7 +1,8 @@
 """Métricas estruturais de análise de redes (M2 — RF18).
 
-Contém funções puras para cálculo de grau de vértices e grau médio da rede,
-operando apenas sobre a biblioteca padrão do Python.
+Contém funções puras para cálculo de grau de vértices, grau médio da rede e
+coeficiente de agrupamento (local e médio global), operando apenas sobre a
+biblioteca padrão do Python.
 """
 
 from __future__ import annotations
@@ -81,3 +82,50 @@ def average_degree(graph: GraphLike) -> float:
     if n == 0:
         return 0.0
     return sum(len(neighbors) for neighbors in adj) / n
+
+
+def _clustering_from_adj(adj: list[set[int]], u: int) -> float:
+    """Calcula o coeficiente de agrupamento local de ``u`` a partir de ``adj``."""
+    neighbors_u = adj[u]
+    k_u = len(neighbors_u)
+    if k_u < 2:
+        return 0.0
+
+    # Cada aresta entre dois vizinhos (w1, w2) de u é contada duas vezes no somatório
+    links_twice = sum(len(neighbors_u & adj[w]) for w in neighbors_u)
+    return links_twice / (k_u * (k_u - 1))
+
+
+def local_clustering_coefficient(graph: GraphLike, u: int) -> float:
+    """Retorna o coeficiente de agrupamento local do vértice ``u``.
+
+    Definido como ``2 * t_u / (k_u * (k_u - 1))``, onde ``t_u`` é o número de
+    arestas entre os vizinhos de ``u``. Retorna ``0.0`` se ``k_u < 2``.
+    """
+    n = int(graph.num_vertices)
+    if not (0 <= u < n):
+        raise ValueError(f"Vértice fora do intervalo [0, {n}): {u}")
+    adj = _build_adj_sets(graph)
+    return _clustering_from_adj(adj, u)
+
+
+def clustering_coefficients(graph: GraphLike) -> dict[int, float]:
+    """Retorna ``{vertice: C_v}`` com o coeficiente de agrupamento local de cada vértice.
+
+    Complexidade: O(sum(k_v^2)) usando interseção de conjuntos de vizinhança.
+    """
+    adj = _build_adj_sets(graph)
+    return {u: _clustering_from_adj(adj, u) for u in range(len(adj))}
+
+
+def average_clustering_coefficient(graph: GraphLike) -> float:
+    """Retorna o coeficiente de agrupamento médio global: ``(1 / V) * sum(C_v)``.
+
+    Retorna ``0.0`` se o grafo não possuir vértices.
+    Complexidade: O(sum(k_v^2)).
+    """
+    adj = _build_adj_sets(graph)
+    n = len(adj)
+    if n == 0:
+        return 0.0
+    return sum(_clustering_from_adj(adj, u) for u in range(n)) / n
