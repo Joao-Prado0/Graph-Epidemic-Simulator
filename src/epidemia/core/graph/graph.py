@@ -72,6 +72,12 @@ class Graph:
         """Retorna ``True`` se o vértice ``u`` está presente no grafo."""
         return 0 <= u < len(self._adj) and bool(self._vertex_present[u])
 
+    def vertices(self) -> Iterator[int]:
+        """Itera sobre todos os índices de vértices presentes (não removidos) no grafo."""
+        for u, present in enumerate(self._vertex_present):
+            if present:
+                yield u
+
     def add_vertex(
         self,
         *,

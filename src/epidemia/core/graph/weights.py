@@ -38,4 +38,6 @@ def effective_distance_cost(probability: float) -> float:
             f"A probabilidade de transmissão deve estar em (0, 1]: {probability}"
         )
     return -math.log(min(probability, MAX_TRANSMISSION_PROBABILITY))
+
+
 travel_cost = effective_distance_cost
