@@ -29,6 +29,35 @@ def effective_average_degree(target_avg_degree: float, num_country_vertices: int
     return min(float(target_avg_degree), float(num_country_vertices - 1))
 
 
+def _apply_largest_remainder(
+    quotas: Mapping[str, float],
+    populations: Mapping[str, int],
+    remaining_budget: int,
+) -> dict[str, int]:
+    """Arredonda cotas fracionárias pelo Método do Maior Resto (Hamilton).
+
+    Desempata de forma determinística por maior população e código ISO3 em ordem alfabética.
+    """
+    floors: dict[str, int] = {}
+    remainders: list[tuple[float, int, str]] = []
+    floor_sum = 0
+
+    for iso3, q in quotas.items():
+        f_val = int(math.floor(q))
+        floors[iso3] = f_val
+        floor_sum += f_val
+        remainders.append((q - f_val, populations[iso3], iso3))
+
+    remainders.sort(key=lambda item: (-item[0], -item[1], item[2]))
+    leftover = remaining_budget - floor_sum
+
+    rounded: dict[str, int] = {}
+    for idx, (_, _, iso3) in enumerate(remainders):
+        bonus = 1 if idx < leftover else 0
+        rounded[iso3] = floors[iso3] + bonus
+    return rounded
+
+
 def allocate_vertices(
     populations: Mapping[str, int],
     *,
@@ -47,7 +76,7 @@ def allocate_vertices(
     3. Países cuja cota ficar abaixo de ``min_vertices`` são fixados no piso e
        removidos do conjunto livre, descontando do orçamento.
     4. Quando nenhum país livre ficar abaixo do piso, arredonda pelo método do
-       maior resto (Hamilton) com desempate determinístico por população e ISO3.
+       maior resto (Hamilton) via ``_apply_largest_remainder``.
 
     Complexidade de tempo: O(M^2) no pior caso (em prática 2 a 4 iterações, O(M log M)).
     Complexidade de espaço: O(M), onde M é o número de países.
@@ -117,24 +146,7 @@ def allocate_vertices(
         remaining_budget = total_vertices - sum(v for k, v in allocated.items() if k not in free)
 
     if free:
-        floors: dict[str, int] = {}
-        remainders: list[tuple[float, int, str]] = []
-        floor_sum = 0
-
-        for iso3 in free:
-            q = quotas[iso3]
-            f_val = int(math.floor(q))
-            floors[iso3] = f_val
-            floor_sum += f_val
-            rem = q - f_val
-            remainders.append((rem, populations[iso3], iso3))
-
-        # Ordena por maior resto decrescente; desempata por maior população e ISO3 alfabético
-        remainders.sort(key=lambda item: (-item[0], -item[1], item[2]))
-        leftover = remaining_budget - floor_sum
-
-        for idx, (_, _, iso3) in enumerate(remainders):
-            bonus = 1 if idx < leftover else 0
-            allocated[iso3] = floors[iso3] + bonus
+        active_quotas = {iso3: quotas[iso3] for iso3 in free}
+        allocated.update(_apply_largest_remainder(active_quotas, populations, remaining_budget))
 
     return allocated

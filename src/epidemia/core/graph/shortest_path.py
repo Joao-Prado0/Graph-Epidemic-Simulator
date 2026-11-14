@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from epidemia.core.errors import ParameterOutOfRangeError, VertexNotFoundError
 from epidemia.core.graph.graph import Graph
+from epidemia.core.graph.traversal import reconstruct_path
 from epidemia.core.graph.weights import transmission_probability, travel_cost
 
 
@@ -36,19 +37,8 @@ class ShortestPathResult:
         return math.exp(-dist)
 
     def path_to(self, target: int) -> list[int]:
-        """Reconstrói o caminho de menor custo de ``source`` até ``target``.
-
-        Retorna lista vazia se ``target`` não foi alcançado.
-        """
-        if target not in self.parent:
-            return []
-        path: list[int] = []
-        curr: int | None = target
-        while curr is not None:
-            path.append(curr)
-            curr = self.parent[curr]
-        path.reverse()
-        return path
+        """Reconstrói o caminho de menor custo de ``source`` até ``target``."""
+        return reconstruct_path(self.parent, target)
 
 
 def dijkstra(

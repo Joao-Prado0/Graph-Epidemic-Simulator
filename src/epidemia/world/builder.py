@@ -8,6 +8,7 @@ internacionais ponderadas pelas rotas aéreas do OpenFlights.
 from __future__ import annotations
 
 import math
+import random
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from typing import Final
@@ -57,6 +58,96 @@ def route_edge_multiplicity(
     return min(k_max, int(math.ceil(routes / scale)))
 
 
+def _populate_internal_subgraphs(
+    graph: Graph,
+    country_codes: Sequence[str],
+    country_geometries: Mapping[str, CountryGeometry],
+    allocated: Mapping[str, int],
+    *,
+    target_avg_degree: float,
+    rng: random.Random,
+) -> tuple[dict[str, list[int]], list[int], list[Point2D], int]:
+    """Cria os vértices e as conexões geométricas internas de cada país."""
+    country_vertices: dict[str, list[int]] = {}
+    vertex_country: list[int] = []
+    vertex_positions: list[Point2D] = []
+    internal_edge_count = 0
+
+    for c_idx, iso3 in enumerate(country_codes):
+        n_i = allocated[iso3]
+        cg = country_geometries[iso3]
+        local_positions = sample_points_in_polygons(cg.polygons, n_i, rng)
+
+        global_ids: list[int] = []
+        for pos in local_positions:
+            u = graph.add_vertex(country_id=c_idx, position=pos)
+            global_ids.append(u)
+            vertex_country.append(c_idx)
+            vertex_positions.append(pos)
+
+        country_vertices[iso3] = global_ids
+
+        radius = connection_radius(cg.area, n_i, target_avg_degree=target_avg_degree)
+        local_edges = spatial_grid_edges(local_positions, radius)
+        for lu, lv in local_edges:
+            graph.add_edge(global_ids[lu], global_ids[lv], weight=INTERNAL_EDGE_WEIGHT)
+            internal_edge_count += 1
+
+    return country_vertices, vertex_country, vertex_positions, internal_edge_count
+
+
+def _connect_international_routes(
+    graph: Graph,
+    routes: Sequence[RouteInput],
+    country_codes: Sequence[str],
+    country_index: Mapping[str, int],
+    country_vertices: Mapping[str, Sequence[int]],
+    *,
+    k_max: int,
+    route_scale: float,
+    rng: random.Random,
+) -> tuple[int, tuple[str, ...]]:
+    """Consolida rotas aéreas em pares não ordenados, cria arestas e lista países isolados."""
+    pair_routes: dict[tuple[str, str], int] = defaultdict(int)
+    countries_with_routes: set[str] = set()
+
+    for route in routes:
+        if route.routes <= 0:
+            continue
+        a, b = route.iso3_a, route.iso3_b
+        if a == b or a not in country_index or b not in country_index:
+            continue
+        pair = (a, b) if a < b else (b, a)
+        pair_routes[pair] += route.routes
+        countries_with_routes.add(a)
+        countries_with_routes.add(b)
+
+    international_edge_count = 0
+    if pair_routes:
+        max_routes = max(pair_routes.values())
+        for (iso_a, iso_b), count_routes in sorted(pair_routes.items()):
+            k_ij = route_edge_multiplicity(count_routes, k_max=k_max, scale=route_scale)
+            w_ij = normalized_route_weight(count_routes, max_routes)
+            verts_a = country_vertices[iso_a]
+            verts_b = country_vertices[iso_b]
+            target_k = min(k_ij, len(verts_a) * len(verts_b))
+
+            added_for_pair = 0
+            attempts = 0
+            max_attempts = target_k * 20
+            while added_for_pair < target_k and attempts < max_attempts:
+                attempts += 1
+                u = rng.choice(verts_a)
+                v = rng.choice(verts_b)
+                if not graph.has_edge(u, v):
+                    graph.add_edge(u, v, weight=w_ij)
+                    added_for_pair += 1
+                    international_edge_count += 1
+
+    isolated_countries = tuple(iso3 for iso3 in country_codes if iso3 not in countries_with_routes)
+    return international_edge_count, isolated_countries
+
+
 def build_world(
     countries: Sequence[CountryInput],
     routes: Sequence[RouteInput] = (),
@@ -79,7 +170,6 @@ def build_world(
     scenario_spec = resolve_scenario(scenario, daily_cases_by_country=daily_cases_by_country)
     rng = SeedBook(seed).rng(SUBSYSTEM_NETWORK)
 
-    # Ordena os países por código ISO3 para garantir determinismo absoluto
     sorted_countries = sorted(countries, key=lambda c: c.iso3)
     country_codes = tuple(c.iso3 for c in sorted_countries)
     if len(set(country_codes)) != len(country_codes):
@@ -101,73 +191,26 @@ def build_world(
     )
 
     graph = Graph(0, beta=beta)
-    country_vertices: dict[str, list[int]] = {}
-    vertex_country: list[int] = []
-    vertex_positions: list[Point2D] = []
-    internal_edge_count = 0
-
-    # 1. Cria os vértices e as conexões geométricas internas de cada país
-    for c_idx, iso3 in enumerate(country_codes):
-        n_i = allocated[iso3]
-        cg = country_geometries[iso3]
-        local_positions = sample_points_in_polygons(cg.polygons, n_i, rng)
-
-        global_ids: list[int] = []
-        for pos in local_positions:
-            u = graph.add_vertex(country_id=c_idx, position=pos)
-            global_ids.append(u)
-            vertex_country.append(c_idx)
-            vertex_positions.append(pos)
-
-        country_vertices[iso3] = global_ids
-
-        radius = connection_radius(cg.area, n_i, target_avg_degree=target_avg_degree)
-        local_edges = spatial_grid_edges(local_positions, radius)
-        for lu, lv in local_edges:
-            graph.add_edge(global_ids[lu], global_ids[lv], weight=INTERNAL_EDGE_WEIGHT)
-            internal_edge_count += 1
-
-    # 2. Consolida rotas aéreas internacionais em pares não ordenados (Modelagem 2.2 e 2.5)
-    pair_routes: dict[tuple[str, str], int] = defaultdict(int)
-    countries_with_routes: set[str] = set()
-
-    for route in routes:
-        if route.routes <= 0:
-            continue
-        a, b = route.iso3_a, route.iso3_b
-        # Descarta rotas domésticas ou de entidades fora do universo de 229 países
-        if a == b or a not in country_index or b not in country_index:
-            continue
-        pair = (a, b) if a < b else (b, a)
-        pair_routes[pair] += route.routes
-        countries_with_routes.add(a)
-        countries_with_routes.add(b)
-
-    international_edge_count = 0
-    if pair_routes:
-        max_routes = max(pair_routes.values())
-        for (iso_a, iso_b), count_routes in sorted(pair_routes.items()):
-            k_ij = route_edge_multiplicity(count_routes, k_max=k_max, scale=route_scale)
-            w_ij = normalized_route_weight(count_routes, max_routes)
-            verts_a = country_vertices[iso_a]
-            verts_b = country_vertices[iso_b]
-            max_possible_pairs = len(verts_a) * len(verts_b)
-            target_k = min(k_ij, max_possible_pairs)
-
-            added_for_pair = 0
-            attempts = 0
-            max_attempts = target_k * 20
-            while added_for_pair < target_k and attempts < max_attempts:
-                attempts += 1
-                u = rng.choice(verts_a)
-                v = rng.choice(verts_b)
-                if not graph.has_edge(u, v):
-                    graph.add_edge(u, v, weight=w_ij)
-                    added_for_pair += 1
-                    international_edge_count += 1
-
-    # 3. Identifica países sem nenhuma rota aérea internacional (Modelagem 2.7 / D16)
-    isolated_countries = tuple(iso3 for iso3 in country_codes if iso3 not in countries_with_routes)
+    country_vertices, vertex_country, vertex_positions, internal_edge_count = (
+        _populate_internal_subgraphs(
+            graph,
+            country_codes,
+            country_geometries,
+            allocated,
+            target_avg_degree=target_avg_degree,
+            rng=rng,
+        )
+    )
+    international_edge_count, isolated_countries = _connect_international_routes(
+        graph,
+        routes,
+        country_codes,
+        country_index,
+        country_vertices,
+        k_max=k_max,
+        route_scale=route_scale,
+        rng=rng,
+    )
 
     return World(
         graph=graph,

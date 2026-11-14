@@ -7,10 +7,24 @@ ativas da classe ``Graph`` por padrão (``only_active=True``).
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from epidemia.core.errors import VertexNotFoundError
 from epidemia.core.graph.graph import Graph
+
+
+def reconstruct_path(parent: Mapping[int, int | None], target: int) -> list[int]:
+    """Reconstrói um caminho da raiz até ``target`` seguindo o mapa de predecessores ``parent``."""
+    if target not in parent:
+        return []
+    path: list[int] = []
+    curr: int | None = target
+    while curr is not None:
+        path.append(curr)
+        curr = parent[curr]
+    path.reverse()
+    return path
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,18 +37,8 @@ class BFSResult:
     parent: dict[int, int | None]
 
     def path_to(self, target: int) -> list[int]:
-        """Reconstrói o caminho mínimo em número de saltos de ``source`` até ``target``.
-        Retorna lista vazia se ``target`` não foi alcançado pela busca.
-        """
-        if target not in self.parent:
-            return []
-        path: list[int] = []
-        curr: int | None = target
-        while curr is not None:
-            path.append(curr)
-            curr = self.parent[curr]
-        path.reverse()
-        return path
+        """Reconstrói o caminho mínimo em número de saltos de ``source`` até ``target``."""
+        return reconstruct_path(self.parent, target)
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,18 +50,8 @@ class DFSResult:
     parent: dict[int, int | None]
 
     def path_to(self, target: int) -> list[int]:
-        """Reconstrói o caminho na árvore de DFS de ``source`` até ``target``.
-        Retorna lista vazia se ``target`` não foi alcançado pela busca.
-        """
-        if target not in self.parent:
-            return []
-        path: list[int] = []
-        curr: int | None = target
-        while curr is not None:
-            path.append(curr)
-            curr = self.parent[curr]
-        path.reverse()
-        return path
+        """Reconstrói o caminho na árvore de DFS de ``source`` até ``target``."""
+        return reconstruct_path(self.parent, target)
 
 
 def bfs(graph: Graph, source: int, *, only_active: bool = True) -> BFSResult:
