@@ -69,6 +69,7 @@ class SeedBook:
     def seed_for(self, subsystem: str) -> int:
         """Retorna a semente inteira de 64 bits derivada para ``subsystem``."""
         return derive_subsystem_seed(self.global_seed, subsystem)
+    derive_seed = derive_subsystem_seed
 
     def rng(self, subsystem: str) -> random.Random:
         """Cria uma nova instância isolada de ``random.Random`` para ``subsystem``."""
