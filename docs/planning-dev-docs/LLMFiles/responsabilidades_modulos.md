@@ -1,168 +1,237 @@
 # Responsabilidades por módulo: Simulador de Epidemias em Redes
 
-Versão 0.1, 03/11/2026. Proposta para discussão do grupo.
+Versão 0.3, 14/11/2026. Proposta para discussão do grupo. Atualiza a v0.2 com as decisões de 14/11 (escopo do M1 da v0.1, nomes em inglês, γ como taxa total de saída de I e dia 0 por vértices infectados).
 
 ## 1. Premissas
 
-- Um **módulo** é um conjunto de funcionalidades com um responsável. Pode ocupar mais de uma pasta e não é necessariamente um componente independente.
-- A base são as decisões já fechadas: grupos 0, A a F da modelagem, decisões B1 a B9 e C1 a C8, decisões de dados e as decisões de arquitetura registradas (pasta `datasets/`, buffer de histórico, sementes por subsistema).
-- A arquitetura v0.3 não estava disponível neste chat. Os nomes de módulos (M1 a M5) e pastas seguem o que está registrado nas decisões. Conferir com o documento de arquitetura antes de fechar.
-- O grupo foi informado com **5 integrantes**. O histórico registra 6. Confirmar: se houver um sexto integrante, a carga do M3 e do M5 pode ser dividida.
-- Os integrantes aparecem como A a E. Cada letra representa um integrante, a ser atribuído em grupo.
+- A equipe tem **5 integrantes**, identificados como A a E. A atribuição de cada letra a uma pessoa é decisão do grupo e continua pendente.
+- Um **módulo** é um conjunto de funcionalidades com um responsável. Pode ocupar mais de um pacote e não é necessariamente um componente independente.
+- Base: modelagem (revisão 2), dados (v0.8), documento de apoio (v0.8), arquitetura (v0.6) e setup (v1.3).
+- **Escopo do M1 aprovado em 14/11:** o M1 mantém a construção do grafo unificado, como na v0.1 (`world/`), além do núcleo do grafo, das sementes e das exceções.
+- **Nomes em inglês** nos contratos e no código (decisão C2). Documentação em português.
+- Os nomes de pacotes e arquivos seguem a seção 8 da arquitetura v0.6.
 
 ## 2. Visão geral
 
-| Módulo | Responsável | Escopo resumido | Pastas prováveis | Carga estimada |
+| Módulo | Responsável | Escopo resumido | Pacotes principais | Carga estimada |
 |---|---|---|---|---|
-| M1 Grafo e rede | A | Construção do grafo unificado, alocação de vértices, arestas, pesos e custos | `core/graph/` | Grande |
-| M3 Motor epidemiológico | B | Passo diário, isolamento, vacinação, paciente zero, histórico, calibração de β | `core/engine/` | Grande |
-| M2 Análise e benchmark | C | Métricas estruturais, métricas epidemiológicas, benchmark de desempenho | `core/analysis/`, `tests/bench/` | Média |
-| M4 Dados e comparação | D | Script de preparação, geometria processada, fluxo real, comparação com dados reais | `scripts/prepare_data.py`, `datasets/` | Grande |
-| M5 Interface e saída | E | Janelas, player, mapa, painel, gráficos, configuração, exportação, empacotamento | `app/`, `ui/` | Grande |
+| M1 Grafo unificado e núcleo do grafo | A | Estruturas e algoritmos de grafo, construção do grafo unificado (alocação, posições, conexões, arestas, pesos, cenários), sementes e exceções | `core/graph/`, `world/`, `core/seeds.py`, `core/errors.py` | Grande |
+| M2 Análise de redes e benchmark | C | Tarjan, comunidades, grau, agrupamento, intermediação aproximada, benchmark de desempenho | `core/analysis/`, `benchmarks/` | Média |
+| M3 Motor de simulação | B | Parâmetros, calibração de β, modelo SEIRD, isolamento, vacinação, buffer, sessão de simulação | `core/epidemic/`, `core/timeline/`, `app/simulation_session.py` | Grande |
+| M4 Dados e comparação | D | Script de preparação, geometria processada, leitura dos dados, fluxo real e comparação com dados reais | `data/`, `datasets/`, `app/real_session.py`, `app/comparison.py` | Média |
+| M5 Interface, mapa e resultados | E | Telas, player, mapa, painel, gráficos, salvar e carregar configuração, exportação, testes de arquitetura, executável | `ui/`, `app/playback.py`, `app/panel_metrics.py`, `app/config_io.py`, `app/export.py`, `scripts/build_exe.ps1` | Grande |
 
-Observação: a carga é relativa e precisa ser validada pelo grupo depois da primeira estimativa de cada integrante.
+A carga é relativa. Deve ser validada pelo grupo depois da primeira estimativa de cada integrante.
 
 ## 3. Contratos a fechar na primeira reunião
 
-Antes de codar, os responsáveis por M1, M3, M4 e M5 devem concordar com estas estruturas. Sem isso, os módulos não se encaixam.
+Antes de codar, os responsáveis pelos contratos devem publicar a assinatura inicial. Sem isso, os módulos não se encaixam.
 
 | Contrato | Dono | Conteúdo |
 |---|---|---|
-| `Grafo` | M1 | Vértices com país e posição, lista de adjacência, máscara de arestas ativas, pesos `w` e custos `−ln p` |
-| `SimulationConfig` | M3 | Parâmetros da doença, níveis de isolamento e vacinação, paciente zero, semente global, N_total, β calibrado |
-| `Timeline` | M3 | Buffer por dia (um `bytearray` por dia), com estado, flag de isolado e flag de vacinado por vértice |
-| `CountriesData` / `EdgesData` | M4 | Saídas do script: `countries.csv`, `edges.csv`, `countries.geojson` e séries diárias |
-| `MetricasSerie` | M2 | Séries de casos, mortes e recuperados para comparação e painel |
+| `Graph` | M1 | Vértices, lista de adjacência, máscara de arestas ativas, peso `w` por aresta. Funções `transmission_probability(w, beta)` e `travel_cost(p)`, que recebem β como argumento |
+| `derive_seed(global_seed, name)` | M1 | Semente de cada subsistema, por `hashlib` (F2) |
+| `Timeline` (protocolo) e `StateBuffer` | M3 | Um `bytearray` por dia. Byte por vértice: bits 0 a 2 para o estado (S, E, I, R, D), bit 3 isolado, bit 4 vacinado (arquitetura, A10) |
+| `SimulationConfig` | M3 | Imutável. `seed`, `scenario`, `r0`, `exit_rate_gamma` (γ, taxa total de saída de I), `mortality`, `incubation_days`, `intervention_level`, paciente zero. β não entra: é calibrado depois |
+| `CountryInfo` e arquivos processados | M4 | `countries.csv`, `edges.csv`, `countries.geojson` e as séries em `data/processed/` |
+| `RealTimeline` | M4 | Mesma forma de leitura do `Timeline`, alimentada pelas séries reais |
+| `ComparisonResult` | M4 | Métricas de comparação com dados reais (RF14) |
+
+Ponto de atenção: `CountryInfo` e os arquivos processados pelo M4 são o caminho crítico. M1, M3 e M5 podem começar com dados de teste, mas o grafo real só existe depois que M4 gerar os arquivos.
 
 ## 4. Detalhamento por módulo
 
-### M1: Grafo e rede (responsável A)
+### M1: Grafo unificado e núcleo do grafo (responsável A)
 
 **Funcionalidades**
 
-- Alocação de vértices por país: total fixo `N_total` (provisório 8.000), `n_min = 12`, `α = 0,5`, alocação iterativa de piso e arredondamento por maior resto. Grau efetivo `d̄_ef = min(d̄, n_i − 1)`.
-- Posição dos vértices sorteada dentro do polígono do país (polígonos vindos do M4).
-- Raio das conexões internas por `r ≈ √(d̄ / (π · ρ))`, com `d̄` entre 6 e 10. Rede geométrica aleatória (RF02).
-- Arestas entre países por `k_ij = min(k_max, ceil(routes_ij / escala))`, com vértices escolhidos ao acaso e semente fixa. Cada aresta herda `w_ij`.
-- Pesos: `w = log(1 + routes) / log(1 + max routes)`, `p = 1 − exp(−β · w)`, custo `−ln(p)` com `p ≤ 0,999`.
-- Estrutura de lista de adjacência com máscara de arestas ativas (E1). Versão NumPy/CSR só se o professor liberar NumPy.
-- Consultas: vizinhos e caminho mínimo (Dijkstra) pelo custo de distância efetiva.
-- Sinalização de países isolados (sem rota no OpenFlights), sem arestas artificiais.
-- Redistribuição do orçamento de vértices no cenário regional (B3), mantendo o grafo global.
+- `Graph` (`core/graph/graph.py`): lista de adjacência com máscara de arestas ativas. Desligar uma aresta altera a máscara, não a estrutura (C3). A versão com arrays e CSR é opcional, porque o professor liberou NumPy no núcleo do grafo (D17).
+- Travessia (`core/graph/traversal.py`): BFS, DFS e componentes conexos.
+- Caminho mínimo (`core/graph/shortest_path.py`): Dijkstra recebendo o custo por aresta, calculado por `travel_cost(p)`.
+- Alocação de vértices por país (`world/allocation.py`): total fixo `N_total` (provisório 8.000), `n_min = 12`, `α = 0,5`, alocação iterativa de piso e arredondamento por maior resto. Grau efetivo `d̄_ef = min(d̄, n_i − 1)`.
+- Posição dos vértices sorteada dentro do polígono do país, com geometria só da biblioteca padrão (`world/geometry.py`). Trata o antimeridiano e agrega feições do mesmo país.
+- Conexões internas por raio `r ≈ √(d̄ / (π · ρ))` com `d̄` entre 6 e 10, usando grade espacial (`world/spatial_grid.py` e `world/builder.py`). Rede geométrica aleatória (RF02).
+- Arestas entre países `k_ij = min(k_max, ceil(routes_ij / escala))`, com vértices escolhidos ao acaso e semente própria. Cada aresta herda `w_ij`.
+- Pesos `w = log(1 + routes) / log(1 + max routes)`. Probabilidade `p = 1 − exp(−β · w)` e custo `−ln(p)` com `p ≤ 0,999`, implementados como funções que recebem β (`transmission_probability`, `travel_cost`). O M3 chama essas funções depois da calibração.
+- Cenários (`world/scenarios.py`): global e regional. No regional, países que atingem 10 casos acumulados nos primeiros 60 dias a partir do dia 0 do surto recebem o orçamento de vértices (B3, B4). O prazo é configurável. As séries vêm do M4.
+- Sinalização de países sem rota no OpenFlights, sem arestas artificiais (D16).
+- Sementes (`core/seeds.py`) e exceções próprias (`core/errors.py`, RNF08). Entregues na Etapa 1, porque o M3 e o M4 dependem delas.
+- Cache do grafo por (semente, cenário), porque a construção pode levar segundos.
 
-**Entradas:** `countries.csv`, `edges.csv`, polígonos (M4).
-**Saídas:** `Grafo` (contrato).
-**Critérios de aceitação:** soma de vértices igual a `N_total`; grafo não direcionado; custo de caminho derivado de `p`, não de `routes`; grafos pequenos com resposta conhecida (caminho, ciclo, Dijkstra calculado à mão).
-**Bloqueios:** `β`, `k_max`, `escala` e `d̄` (benchmark, com C).
+**Entradas:** lista de países, populações, polígonos e rotas (M4).
+**Saídas:** `Graph` (contrato), `derive_seed`, funções de probabilidade e custo, cenários.
+**Critérios de aceitação:** soma de vértices igual a `N_total`; grafo não direcionado; máscara desliga aresta sem alterar a estrutura; custo de caminho derivado de `p`, não de `routes`; BFS, componentes e Dijkstra conferidos com grafos pequenos calculados à mão (caminho, ciclo e grafo de três países); mesma semente gera a mesma derivação de subsistema.
+**Bloqueios:** arquivos processados pelo M4 para testar com o grafo real. Testes com fixtures não dependem de ninguém.
 
-### M3: Motor epidemiológico (responsável B)
-
-**Funcionalidades**
-
-- Compartimentos S, E, I, R, D. Passo de um dia, transição com `1 − exp(−γ)` (C1, C2).
-- Saída de I: vai para D com probabilidade igual à mortalidade e para R com a probabilidade complementar. γ é a taxa total de saída de I.
-- Isolamento como flag e máscara de arestas, sem alterar o grafo. Isolado não é contaminado, pode morrer e volta com as mesmas arestas (C3, RF05).
-- Vacinação automática: move S para R com eficácia 0,8. Início e fração diária vêm dos níveis baixo, médio e alto (C5, provisório). Vacinado é uma flag separada, e a comparação com dados reais ignora essa flag (acordo do Bloco 2, item 3).
-- Paciente zero manual ou aleatório (RF03). Centralidade fica só como análise (M2).
-- Sementes: uma global, e uma derivada por subsistema (rede, paciente zero, isolamento, vacinação, rótulos), de forma determinística (F2, RNF05).
-- Invariante `S + E + I + R + D = N` verificado em todo passo (F1).
-- Buffer de histórico gravado durante a execução, um `bytearray` por dia. A escrita é feita pela thread de simulação e a leitura pela interface (E2).
-- Calibração de β por bisseção até o R0 informado pelo usuário (B2). Configuração travada após a calibração.
-- Histórico no mesmo formato para o fluxo real, lido pelo mesmo player.
-
-**Entradas:** `Grafo` (M1), `SimulationConfig`.
-**Saídas:** `Timeline` (contrato), séries para o M2 e o M4.
-**Critérios de aceitação:** caso de referência sem isolamento nem vacinação dentro de 5% do pico da solução do SIR (F1); mesma semente e mesmos parâmetros geram o mesmo buffer (comparação por hash); invariante em todas as simulações de teste.
-**Bloqueios:** liberação de NumPy pelo professor; benchmark para N_total; níveis C5 (validar se produzem diferenças visíveis).
-
-### M2: Análise de grafo e métricas (responsável C)
+### M2: Análise de redes e benchmark (responsável C)
 
 **Funcionalidades**
 
-- Tarjan no grafo completo de vértices: pontes e pontos de articulação (E3).
-- Comunidades por propagação de rótulos no grafo contraído por país (RF19, E3).
-- Centralidade de grau para o painel. Intermediação aproximada por amostragem de fontes; versão exata só no benchmark (E4).
-- Coeficiente de agrupamento local por vértice e média global, com custo `O(Σ k_v²)` (RF18). Média por país opcional, a partir do grafo contraído.
-- Métricas epidemiológicas: R0 efetivo pelo crescimento inicial, na forma SEIR `R0 ≈ (1 + r/σ)(1 + r/γ)`, com `r = ln(I_t / I_0) / t` (B6, C8). Indicação do pico. Pico de novos casos por dia e tamanho final.
-- Benchmark de desempenho (RNF02) para definir `N_total`, `β`, `k_max`, `escala` e `d̄`. Comparação de desempenho com NetworkX (F1).
-- Fixtures de teste de grafos pequenos, usados também pelo M1.
+- Tarjan (`core/analysis/bridges.py`): pontes e pontos de articulação no grafo completo de vértices (E3).
+- Comunidades (`core/analysis/communities.py`): propagação de rótulos no grafo contraído por país (RF19, E3).
+- Métricas (`core/analysis/metrics.py`): grau para o painel; agrupamento local por vértice e média global, com custo `O(Σ k_v²)` (RF18); intermediação aproximada por amostragem de fontes, com versão exata só no benchmark (E4).
+- Benchmark (`benchmarks/bench_grafo.py`): único lugar em que NetworkX é permitido (F1). Mede tempo por passo e serve para definir `N_total`, `k_max`, `escala` e `d̄`.
+- Fixtures de grafos pequenos, usadas por M1 e M3.
+- Configuração do pytest e do padrão de testes do repositório, no início do projeto.
 
-**Entradas:** `Grafo` (M1), `Timeline` (M3).
+**Entradas:** `Graph` (M1), `Timeline` (M3).
 **Saídas:** métricas para o painel (M5) e valores para o relatório.
-**Critérios de aceitação:** resultados de Tarjan e Dijkstra iguais aos calculados à mão nos grafos de teste; benchmark documentado com tempo por passo.
-**Atribuição transversal (sugestão):** o C também cuida da configuração do ambiente de testes (pytest) e de um padrão de revisão do repositório, no início.
+**Critérios de aceitação:** Tarjan dá todas as arestas como pontes em um caminho e nenhuma em um ciclo; benchmark documentado com tempo por passo na máquina mais fraca do grupo.
+**Bloqueios:** `Graph` (M1) e `Timeline` (M3). O benchmark completo depende do motor (M3).
+**Nota:** β não entra no benchmark. Ele é calibrado a cada início por bisseção até o R0 informado (B2 da modelagem).
 
-### M4: Dados e comparação com a realidade (responsável D)
+### M3: Motor de simulação (responsável B)
 
 **Funcionalidades**
 
-- Script `prepare_data.py` e pacote `datasets/` (renomeado de `dados/`, C2). Leitura de JHU, OWID, OpenFlights e Natural Earth.
-- Normalização: aliases de países, descarte de não-países (D8), cummax (D10), série diária contínua (D11), recuperados só no SARS (D12), duplicata da China no SARS mantendo o acumulado crescente.
-- Agregação de territórios ao país-mãe (GIB ao GBR; BES ao NLD; TKL ao NZL; GLP, GUF, MTQ, MYT e REU ao FRA). Ilhas Åland ao Finlândia e Norte do Chipre ao Chipre. Feições fora do modelo descartadas (ATA, ATF, HMD, NFK, SGS, IOT, SOL, KAS).
+- `SimulationConfig` (`core/epidemic/parameters.py`): objeto imutável. Qualquer mudança exige nova configuração e novo início (RN01). Inclui γ (`exit_rate_gamma`), taxa total de saída de I, informada pelo usuário (RF01).
+- Calibração de β (`core/epidemic/calibration.py`): bisseção sobre simulações curtas até o R0 medido ficar perto do informado. A fórmula de Newman serve só de verificação (B2, A14). Chama `transmission_probability` depois de testar cada β.
+- Modelo SEIRD (`core/epidemic/model.py`): passo de um dia, transição `1 − exp(−σ)` para E → I e `1 − exp(−γ)` para a saída de I (C1, C2). Cada saída de I vai para D com probabilidade igual à mortalidade e para R com a complementar.
+- Isolamento (`core/epidemic/interventions.py`): flag no bit 3 e máscara de arestas. Isolado não é contaminado, pode morrer e volta com as mesmas arestas (C3, RF05).
+- Vacinação automática (`core/epidemic/interventions.py`): uma fração diária dos suscetíveis é vacinada; cada vacinado vai para R com flag no bit 4, com probabilidade igual à eficácia (0,8). Início e fração diária vêm do nível baixo, médio ou alto (C4, C5). A flag não entra na comparação com dados reais (acordo do Bloco 2, item 3).
+- Níveis de intervenção: valores provisórios, tratados como premissas com análise de sensibilidade (C5, C7).
+- Paciente zero manual ou aleatório (RF03). Centralidade fica só como análise (M2).
+- Dia 0 do país (decidido em 14/11): primeiro dia em que o número de vértices infectados atinge M. O valor de M está pendente.
+- Motor (`core/epidemic/engine.py`): `EpidemicEngine.step()` avança um dia e grava no buffer. Sem Qt e sem tempo de parede.
+- Buffer (`core/timeline/buffer.py`): append-only, um `bytearray` por dia, anunciado dia a dia (E2 e arquitetura seção 7).
+- `Timeline` (`core/timeline/protocol.py`) e `SimulationSession` (`app/simulation_session.py`).
+
+**Entradas:** `Graph` e funções de probabilidade (M1), `SimulationConfig`, sementes derivadas (M1).
+**Saídas:** `Timeline` (contrato), `DayRecord` por dia, séries para M2 e M5.
+**Critérios de aceitação:**
+- Caso de referência sem isolamento nem vacinação dentro de 5% do pico da solução numérica do SIR (F1).
+- Invariante `S + E + I + R + D = N` verificado em todo passo, por país e no total (F1).
+- Mesma semente e mesmos parâmetros geram o mesmo buffer, comparado por hash (F2).
+
+**Bloqueios:** `Graph` (M1); benchmark de `N_total` e demais parâmetros de tamanho (M2); validação dos níveis C5 por sensibilidade; valor de M para o dia 0 (grupo).
+
+### M4: Dados e comparação com dados reais (responsável D)
+
+**Funcionalidades**
+
+*Script de preparação (`data/`, fora do aplicativo)*
+- `data/prepare_data.py`: leitura de JHU, OWID, OpenFlights e Natural Earth. Gera `countries.csv`, `edges.csv`, `countries.geojson` e as séries em `data/processed/`.
+- Natural Earth convertido uma vez de shapefile para GeoJSON. shapely liberado pelo professor para o script (união de polígonos e centroide), e não entra no aplicativo.
+- Normalização: aliases de países, descarte de não-países (D8), cummax (D10), série diária contínua (D11), recuperados só no SARS (D12), duplicata da China no SARS mantendo o acumulado crescente, regra da Libéria no Ebola (D22).
+- Agregação: territórios ao país-mãe (GIB ao GBR; BES ao NLD; TKL ao NZL; GLP, GUF, MTQ, MYT e REU ao FRA), Ilhas Åland à Finlândia, Norte do Chipre ao Chipre (D24). Feições fora do modelo descartadas (ATA, ATF, HMD, NFK, SGS, IOT, SOL, KAS).
 - Universo de 229 entidades. Kosovo como OWID_KOS.
-- Rotas: não direcionadas, número bruto em `edges.csv` (D13). Exclui codeshare (D14). Rotas entre território e metrópole viram domésticas e saem.
-- Regra da Libéria no Ebola: manter por data a linha de maior número de casos e descartar a série Liberia 2.
-- Geometria: `countries.geojson` processado (D20), chave ISO_A3_EH com fallback em ADM0_A3, agregação de feições do mesmo país, tratamento do antimeridiano (Rússia, Fiji, EUA).
-- Cenário regional (B4): países que atingem 10 casos acumulados nos primeiros 60 dias a partir do dia 0. Prazo configurável. Não há lista fixa.
-- Fluxo real: séries e histórico processados, no formato do `Timeline`.
-- Comparação com dados reais (RF14): dia 0 pelo limiar de 10 casos em fração da população (B5). Acumulados `I + R + D`, mortes em `D`, recuperados em `R` natural (só SARS). Métricas: erro quadrático médio, diferença de pico de novos casos por dia, diferença de tamanho final (B7, D1, D2).
+- Rotas: não direcionadas, com número bruto em `edges.csv` (D13). Codeshare excluído (D14). Rotas entre território e metrópole viram domésticas e saem.
+- Países sem rota ficam isolados, com aviso na interface e sem arestas artificiais (D16).
+- Geometria processada: `countries.geojson` com chave ISO_A3_EH e fallback em ADM0_A3 (D20).
 
-**Entradas:** arquivos brutos (Kaggle, JHU, OWID, OpenFlights, Natural Earth).
-**Saídas:** `countries.csv`, `edges.csv`, `countries.geojson`, séries processadas, métricas de comparação.
-**Critérios de aceitação:** contagem de países com e sem rota recalculada no script e registrada; nenhuma aresta artificial; teste do script com conferência de totais de população e casos por país.
-**Bloqueios:** confirmação de shapely (e pyshp, se necessário) com o professor; formato de entrada do Natural Earth (GeoJSON ou shapefile); licenças e fonte do Ebola (substituir o Kaggle pela fonte HDX, conforme análise de licenças).
-**Nota:** o responsável pelo script foi listado como decisão do grupo. Esta atribuição é uma proposta.
+*Pacote `datasets/` (`src/epidemia/datasets/`, só biblioteca padrão)*
+- `loaders.py`: lê `countries.csv`, `edges.csv` e `countries.geojson`.
+- `series.py`: lê as séries de covid19, ebola, h1n1 e sars.
 
-### M5: Interface, mapa e saída (responsável E)
+*Fluxo real e comparação*
+- `RealTimeline` e `app/real_session.py`: entrega a mesma leitura de `Timeline` a partir das séries reais.
+- Comparação com dados reais (RF14), em `app/comparison.py`: dia 0 pelo mesmo M de vértices, convertido em casos pela população do país. Acumulados `I + R + D`, mortes em `D`, recuperados em `R` natural, só no SARS (D1). Métricas: erro quadrático médio para casos e mortes, diferença de pico de novos casos por dia e diferença de tamanho final para casos (B7, D2).
+
+**Entradas:** arquivos brutos (Kaggle, JHU, OWID, OpenFlights, Natural Earth) e saídas do M1 para a comparação.
+**Saídas:** `countries.csv`, `edges.csv`, `countries.geojson`, séries processadas, `RealTimeline`, `ComparisonResult`.
+**Critérios de aceitação:**
+- Totais de população e de casos por país conferidos com os arquivos brutos.
+- Nenhuma aresta artificial.
+- Contagem de países com e sem rota registrada no script, sobre as 229 entidades.
+
+**Bloqueios:** fonte do Ebola (substituir o Kaggle pela HDX, conforme análise de licenças); recontagem de rotas e de países sem rota (ver seção 8); valor de M (grupo).
+
+### M5: Interface, mapa e resultados (responsável E)
 
 **Funcionalidades**
 
-- Janela principal em PySide6 e tela de configuração: parâmetros da doença (RF01), seleção de pandemia (RF09), cenário, R0 informado, níveis de isolamento e vacinação, paciente zero.
-- Player com play, pausa, voltar e avançar, lendo o buffer gravado (RF04, RF11, E2). Reiniciar descarta o buffer.
-- Mapa em pyqtgraph: polígonos pintados pela cor de status dominante do dia. Vértices só aparecem em países com largura igual ou maior que 40 px e são ocultados abaixo de 36 px. Regra de status dominante do fluxo real em validação (proposta de intensidade por 100 mil habitantes).
-- Painel de resultados: métricas de comparação (RF14, RF21, RF24), centralidades, comunidades, R0 efetivo e indicação de pico.
-- Gráficos com exportação de imagem (`ui/charts_view.py`, RF08).
+- Tela inicial para escolher entre os dois fluxos (RF25) e tela de configuração com parâmetros da doença, R0 informado, γ, níveis de intervenção, paciente zero e cenário (RF01, RF09, RF23). A seleção de pandemia é feita entre as embutidas (RF09).
+- Player com play, pausa, velocidade, voltar e avançar sobre o `Timeline` (`app/playback.py`, RF04, RF11). Lê o buffer já gravado e não toca no motor. Reiniciar descarta o buffer.
+- Thread de simulação (`ui/simulation_thread.py`, `QThread`): executa `run_day()` em laço, respeita pausa e parada, e emite `day_ready` a cada dia (RNF03, E2).
+- Mapa (`ui/map_view.py`, QPainter em lote; RF22, RF26):
+  - Simulação: polígono pintado pelo status dominante do dia.
+  - Fluxo real: polígono pintado por intensidade de casos acumulados por 100 mil habitantes, em escala sequencial a partir de 10 por 100 mil (A12).
+  - Vértices aparecem a partir de 40 px de largura do país na tela e somem abaixo de 36 px (valores iniciais, a validar no protótipo).
+- Painel de resultados (`app/panel_metrics.py`): pico, duração, mortes, percentual e R0 efetivo pelo crescimento inicial na forma SEIR (B6, C8). Indica o pico e exibe as métricas do RF14 (RF21, RF24).
+- Gráficos (`ui/charts_view.py`, pyqtgraph) das curvas S, E, I, R e D, com exportação de imagem (RF24, RF08).
 - Salvar e carregar configuração em JSON pela biblioteca padrão (`app/config_io.py`, RF07).
-- Exportação em CSV a partir do `Timeline` (`app/export.py`, RF08).
-- Tratamento de erros com exceções próprias, aprovado em 31/10.
-- Empacotamento com PyInstaller para Windows (todos os integrantes usam Windows).
+- Exportação de CSV a partir do `Timeline` (`app/export.py`, RF08).
+- Exibição das exceções próprias em caixa de diálogo (RNF08).
+- Testes de arquitetura (`tests/architecture/test_camadas.py`), que verificam as regras de dependência.
+- Empacotamento com PyInstaller para Windows (`scripts/build_exe.ps1`).
 
-**Entradas:** `Timeline` (M3), `Grafo` (M1), métricas (M2 e M4), `countries.geojson` (M4).
+**Entradas:** `Timeline` (M3), `Graph` e `ComparisonResult` (M1 e M4), métricas (M2), `countries.geojson` (M4).
 **Saídas:** aplicativo executável.
-**Critérios de aceitação:** o player reproduz o buffer sem recalcular a simulação; pausa e retorno não alteram o histórico; configuração salva e carregada produz o mesmo buffer; executável roda em máquina Windows sem o ambiente de desenvolvimento.
-**Bloqueios:** contrato `Timeline`; regra de status dominante (proposta pendente); decisão sobre vértices em países pequenos (ainda a validar).
+**Critérios de aceitação:**
+- O player reproduz o buffer sem recalcular a simulação.
+- Pausa e retorno não alteram o histórico.
+- Configuração salva e carregada produz o mesmo buffer.
+- Executável roda em máquina Windows sem o ambiente de desenvolvimento.
+
+**Bloqueios:** contrato `Timeline` (M3); validação de 40 px e 36 px no protótipo.
 
 ## 5. Atribuições transversais
 
-- **Testes:** cada responsável escreve os testes do próprio módulo. O C configura o pytest.
+- **Testes:** cada responsável escreve os testes do próprio pacote, espelhados em `tests/<pacote>/`. O C configura o pytest. O E mantém `tests/architecture/`.
 - **Revisão cruzada:** cada integrante revisa um módulo de outro antes do fechamento de cada etapa.
-- **Documentação técnica:** docstrings e README de cada pasta, pelo responsável do módulo.
-- **Setup do ambiente e repositório:** já documentado (setup_ambiente). Manter atualizado pelo responsável do M5 (empacotamento).
-- **Casos de uso, UML e relatório LaTeX:** não atribuídos aqui. A lista de casos de uso (C5) está delegada a outro integrante. Definir quem assume UML e relatório depois da primeira versão deste documento.
+- **Documentação técnica:** docstrings e README de cada pasta, pelo responsável do pacote.
+- **Setup e repositório:** setup v1.3 (Python 3.12 para todos, Windows, repositório público). O E mantém o setup atualizado no que toca o empacotamento.
+- **Licença do código e `DATA_SOURCES.md`:** pendentes. Sugestão: D (M4), que já reuniu as fontes e as licenças.
+- **Casos de uso, UML e relatório LaTeX:** fora desta divisão. Os casos de uso e os diagramas UML são de outro integrante, conforme a arquitetura. Definir quem assume o relatório LaTeX.
 
 ## 6. Ordem de execução sugerida
 
-1. **Etapa 1:** fechar os contratos (seção 3). M1 e M4 começam o grafo base e os dados processados. C configura o ambiente de testes.
-2. **Etapa 2:** M3 implementa o motor sobre o grafo do M1. M2 implementa Tarjan, comunidades e métricas sobre o grafo. M5 monta a janela, o mapa e o player com dados falsos (buffer de teste).
-3. **Etapa 3:** calibração de β e benchmark (M3 e M2). Cenário regional e comparação com dados reais (M4). Painel completo (M5).
-4. **Etapa 4:** testes de integração, validação do caso de referência, empacotamento, revisão cruzada e ajustes finais.
+1. **Etapa 1, contratos e base:** publicar as assinaturas dos contratos (seção 3). A entrega `Graph`, `derive_seed`, `errors.py` e a estrutura de `world/` é do M1. M4 gera os arquivos processados, que é o caminho crítico. M3 publica `Timeline` e `StateBuffer`. M2 configura o pytest e as fixtures de grafos. M5 monta a janela e o player com buffer de teste.
+2. **Etapa 2, sobre dados de teste:** M1 conclui alocação, posições, conexões e arestas com fixtures. M3 implementa o motor sobre o `Graph` de fixture. M2 implementa Tarjan, comunidades e métricas. M4 processa os dados reais e M5 implementa o mapa e o painel sobre o buffer de teste.
+3. **Etapa 3, integração:** calibração de β e benchmark (M3 e M2). Cenário regional com séries reais (M1 e M4) e comparação com dados reais (M4). Painel completo, configuração e exportação (M5).
+4. **Etapa 4, fechamento:** testes de integração, validação do caso de referência, teste visual do limiar de vértices no protótipo, empacotamento, revisão cruzada e ajustes finais.
 
-## 7. Pendências que podem mudar este plano
+## 7. Carga e balanceamento
+
+Com o escopo do M1 da v0.1 restabelecido, o M1 concentra a construção do grafo e tem carga grande. O M4 fica com a carga média: dados, geometria processada, fluxo real e comparação. Se o M1 precisar de apoio, a parte de testes de grafo pode ser dividida com o M2, que já configura o pytest.
+
+## 8. Pendências
+
+### Resolvidas desde a v0.2
+
+| Item | Decisão | Impacto |
+|---|---|---|
+| Escopo do M1 | Mantém a construção do grafo unificado (`world/`), sementes e exceções (14/11, escopo da v0.1) | M1 e M4 |
+| Nomes no código e nos contratos | Inglês, com os nomes da seção 3 (14/11) | Todos |
+| Campo de γ em RF01 | Taxa total de saída de I, informada pelo usuário; a mortalidade divide a saída (14/11) | M3, M5 |
+| Custo e probabilidade | Recebem β como argumento; chamados pelo M3 depois da calibração (14/11) | M1 e M3 |
+| Dia 0 | Primeiro dia em que o número de vértices infectados de um país atinge M (14/11) | M3 e M4 |
+| NumPy no núcleo | Liberado pelo professor (04/11) | M1 e M3 |
+| shapely | Liberado para o script, não para o aplicativo (04/11) | M4 |
+| Formato do Natural Earth | GeoJSON, convertido uma vez | M4 |
+| OpenFlights | Arquivo derivado versionado sob ODbL (04/11) | M4 e relatório |
+
+### Ainda abertas
 
 | Pendência | Afeta | Quem resolve |
 |---|---|---|
-| Liberação de NumPy pelo professor | M1, M3 | Grupo (pergunta ao professor) |
-| Confirmação de shapely e pyshp | M4 | Grupo (pergunta ao professor) |
-| Formato do Natural Earth (GeoJSON ou shapefile) | M4, M1 | D, alinhado com A |
-| Benchmark: `N_total`, `β`, `k_max`, `escala`, `d̄` | M1, M2, M3 | C, com A e B |
-| Níveis C5 (isolamento e vacinação) | M3, M5 | B, com validação do grupo |
-| Revisão de σ e γ (H1N1 e SARS) após fontes de incubação | M3, M2 | B e C |
-| Regra de status dominante no fluxo real | M5, M4 | E, com D |
-| Licenças e fonte do Ebola | M4 | D |
-| Quem assume casos de uso, UML e relatório | Documentação | Grupo |
+| Valor de M, número mínimo de vértices infectados para o dia 0 | M3, M4 | Grupo |
+| Validação de 40 px e 36 px no protótipo, na máquina mais fraca | M5 | E |
+| Benchmark de `N_total` (provisório 8.000), `k_max`, `escala` e `d̄` | M1, M2, M3 | C, com A e B |
+| Recontagem de rotas e de países sem rota sobre as 229 entidades | M4 | D |
+| Fonte do Ebola: trocar o Kaggle pela HDX | M4 | D |
+| Licença do código e `DATA_SOURCES.md` | Repositório | D, com o grupo |
+| Níveis de intervenção: validar por sensibilidade | M3, M5 | B, com o grupo |
+| R0 de referência e leitura direta de Lipsitch et al. (2003) | Modelagem e relatório | B, com o grupo |
+| Local do cálculo de R0 efetivo (`app/panel_metrics.py` ou `core/analysis/`) | M2, M5 | C e E |
+| Atribuição de responsáveis (A a E) | Todos | Grupo |
+| Casos de uso, UML e relatório LaTeX | Documentação | Grupo |
 
-## 8. Pontos a confirmar pelo grupo
+## 9. Lacunas da arquitetura v0.5 e situação na v0.6
 
-- Número de integrantes: 5 ou 6.
-- Aceite da atribuição do script de preparação de dados ao M4.
-- Aceite da carga estimada. Se algum módulo estiver pesado demais, a divisão preferida é mover a interface de gráficos (M5) para o M2.
+| # | Lacuna na v0.5 | Situação na v0.6 |
+|---|---|---|
+| 1 | `app/real_session.py` não aparecia na tabela de módulos | Resolvido: M4 |
+| 2 | Comparação com dados reais (RF14) não tinha arquivo | Resolvido: `app/comparison.py`, M4 |
+| 3 | R0 efetivo em `app/panel_metrics.py` (M5), enquanto a modelagem trata como análise | Em aberto (seção 8) |
+| 4 | `tests/` listado como responsabilidade do M5 | Resolvido: cada pacote testa a si mesmo; M5 fica com `tests/architecture/` |
+| 5 | Regra de dependência com `NUMPY_LIBERADO = False` | Resolvido: NumPy só em `core/timeline/buffer.py` e `core/epidemic/engine.py` |
+| 6 | Alocação e cenários em `world/` (M4) | Resolvido: `world/` é do M1 |
+
+## 10. Histórico de alterações
+
+| Versão | Data | Mudanças |
+|---|---|---|
+| 0.1 | 03/11/2026 | Primeira proposta: cinco módulos, responsáveis A a E, contratos e etapas. |
+| 0.2 | 14/11/2026 | Pacotes alinhados à arquitetura v0.5. Construção do grafo unificado movida do M1 para o M4. Testes atribuídos a cada pacote. Pendências atualizadas com as decisões de 04/11. Seções 7 e 9 novas. |
+| 0.3 | 14/11/2026 | Escopo do M1 da v0.1 restabelecido (`world/`, sementes, erros e funções de probabilidade e custo); M4 com dados, comparação e fluxo real; nomes em inglês nos contratos; γ como taxa total de saída de I; β como argumento das funções de custo; dia 0 por vértices infectados (M pendente); lacunas da arquitetura atualizadas. |

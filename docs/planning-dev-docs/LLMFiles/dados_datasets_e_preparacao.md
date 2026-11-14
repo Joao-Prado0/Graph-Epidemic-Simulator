@@ -2,7 +2,7 @@
 
 Simulador de Epidemias em Redes – Documento de apoio (Tema 7)
 
-*Versão 0.7 – revisão do grupo – 03/11/2026*
+*Versão 0.8 – revisão do grupo – 14/11/2026*
 
 **Para que serve este documento.** Registra o que o grupo decidiu sobre os dados (quais arquivos usar, de onde vêm as arestas, como normalizar nomes), a estrutura de pastas e a especificação do script de preparação, para que alguém do grupo possa implementá-lo. Itens marcados como **proposta** ainda não foram validados pelo grupo. Itens marcados como **a verificar** dependem de conferir os arquivos ou perguntar ao professor. Itens marcados como **[pendente]** serão resolvidos durante a implementação ou dependem de terceiros.
 
@@ -147,7 +147,7 @@ Resumo dos problemas encontrados nos arquivos, que o script precisa tratar.
 | D14 | Rotas em codeshare | Excluir `codeshare = Y`, pois esses registros repetem voos já operados por outra companhia e contam o mesmo tráfego duas vezes | Decidido |
 | D15 | Coordenadas dos países | Usar os polígonos do Natural Earth 50m para posicionar os vértices dentro do país e calcular o centroide. Chave por `ISO_A3_EH`, com fallback em `ADM0_A3` quando vier −99 (no arquivo conferido: Kosovo, Norte do Chipre, Somalilândia e Siachen; Noruega e França têm `ISO_A3` −99, mas `ISO_A3_EH` preenchido). Feições do mesmo país são agregadas pelo código (a Austrália tem três); ALA é agregada à FIN e CYN ao CYP. Lat/Long do JHU e média dos aeroportos deixam de ser usados. Revisar países que cruzam o antimeridiano (Rússia, Fiji, EUA, Kiribati e Nova Zelândia) com o próprio polígono | Decidido |
 | D16 | Países sem nenhuma rota | Manter isolados e exibir aviso na interface. Não criar arestas artificiais. Registrar como limitação do modelo (sem voos, a doença não sai do país pela via aérea). A contagem é refeita pelo script (seção 3.6) | Decidido |
-| D17 | NumPy no núcleo do grafo | Liberado pelo professor (03/11/2026); não afeta este script | Decidido (03/11/2026) |
+| D17 | NumPy no núcleo do grafo | Liberado pelo professor (04/11/2026); não afeta este script | Decidido (04/11/2026) |
 | D18 | Multiplicidade das arestas | Cada par de países gera `k_ij = min(k_max, ceil(routes_ij / escala))` arestas entre vértices escolhidos aleatoriamente (com semente), e o peso de cada aresta é o peso derivado de `routes_ij`. `k_max` e `escala` a definir por benchmark | Decidido |
 | D19 | Kosovo | Entra no modelo (`OWID_KOS` no OWID, `KOS` no Natural Earth) com `iso3 = KOS`. É a única exceção à exclusão dos códigos `OWID_` | Decidido |
 | D20 | Geometria processada | O script grava `countries.geojson` com uma feição por entidade do modelo, já agregada, usada pelo mapa e pelo sorteio de posições dos vértices. Somente `Polygon` e `MultiPolygon` (o aplicativo usa só a biblioteca padrão); os polígonos que cruzam o antimeridiano (Rússia, Fiji, EUA) ficam divididos em partes | Decidido |
@@ -247,7 +247,7 @@ python data/prepare_data.py --raw <pasta_com_os_brutos> --out data/processed
 - `--raw`: pasta com os arquivos brutos (seção 2.1). Os nomes dos arquivos são os originais do Kaggle, OWID e OpenFlights, e o arquivo `ne_50m_admin_0_countries.json` (GeoJSON convertido do Natural Earth).
 - `--out`: pasta de saída (padrão `data/processed`).
 - O script **falha com mensagem clara** se faltar algum arquivo bruto, e **termina com erro** se sobrar algum nome sem ISO e sem entrada em `country_aliases.csv` (nunca descarta países em silêncio).
-- Dependências do script (pandas e, para a geometria, shapely) são instaladas só por quem rodar o script e **não entram** no `requirements.txt` do aplicativo. Com a entrada em GeoJSON, a leitura é feita com a biblioteca padrão (`json`), e `pyshp` deixa de ser necessário. **Liberado pelo professor (03/11/2026).**
+- Dependências do script (pandas e, para a geometria, shapely) são instaladas só por quem rodar o script e **não entram** no `requirements.txt` do aplicativo. Com a entrada em GeoJSON, a leitura é feita com a biblioteca padrão (`json`), e `pyshp` deixa de ser necessário. **Liberado pelo professor (04/11/2026).**
 - Execução determinística: mesma entrada, mesma saída.
 
 ### 7.2 Funções sugeridas
@@ -345,8 +345,8 @@ Testes sobre `data/processed/`, rodados pelo grupo e independentes do script:
 
 ## 8. Pontos em aberto
 
-- **Resolvido (03/11/2026):** o professor liberou o uso de shapely no pré-processamento.
-- **Resolvido (03/11/2026):** o professor liberou o NumPy no núcleo do grafo (D17).
+- **Resolvido (04/11/2026):** o professor liberou o uso de shapely no pré-processamento.
+- **Resolvido (04/11/2026):** o professor liberou o NumPy no núcleo do grafo (D17).
 - **[pendente]** Recontar rotas e países sem rota ao rodar o script, com a tabela de apelidos completa. Os números da seção 3.6 foram calculados sobre 230 entidades e são provisórios.
 - **[pendente]** Escolher a forma de atribuição: arquivo `DATA_SOURCES.md` separado ou integrado ao README de `data/` (seção 5).
 - **[pendente]** Definir β, `k_max` e `escala` (D18) por benchmark, durante a implementação do aplicativo.
@@ -377,3 +377,4 @@ Licenças conferidas (seção 2.4). Citações de referências do relatório: co
 | 0.5 | 03/11/2026 | D22 (Libéria) passa a Decidido; nova D24 (população do Norte do Chipre somada ao Chipre, 6.1); pontos em aberto atualizados; referências em BibTeX e ABNT (2.4). |
 | 0.6 | 03/11/2026 | Conferência do arquivo do Natural Earth: chaves e universo de 230 entidades confirmados, D15 e seção 6.5 ajustadas (chave `ISO_A3_EH`, antimeridiano, tamanho do `countries.geojson`). |
 | 0.7 | 03/11/2026 | Universo corrigido para **229 entidades**: `OWID_CYN` é entidade própria com continente (Ásia), agregada ao Chipre (3.5, 6.1, 7.2, 7.5, D24). Recontagem de rotas marcada como pendente (3.6). Entrada do Natural Earth em GeoJSON, convertido uma vez de shapefile (2.1, 6.5, 7.1, 9); `pyshp` deixa de ser necessário. Licenças conferidas (2.4, D25). Repositório público (D25; estrutura de pastas, seção 5). Pendências atualizadas (8). |
+| 0.8 | 14/11/2026 | Data da resposta do professor corrigida para 04/11/2026 (NumPy e shapely). Sem outras mudanças de conteúdo: a construção do grafo passa ao M1 e a comparação ao M4, sem alterar o script de dados. |

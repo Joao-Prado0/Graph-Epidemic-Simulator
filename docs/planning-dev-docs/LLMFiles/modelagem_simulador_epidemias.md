@@ -1,6 +1,6 @@
 # Modelagem do Simulador de Epidemias em Redes
 
-Tema 7, Teoria dos Grafos. Versão de planejamento, 03/11/2026 (revisão 1: incubação e γ corrigidos com as fontes do projeto). Base para a implementação. Itens marcados como **[pendente]** serão resolvidos durante a implementação ou dependem de terceiros, e devem constar como pendentes nos documentos.
+Tema 7, Teoria dos Grafos. Versão de planejamento, revisão 2, 14/11/2026 (revisão 1, de 03/11/2026: incubação e γ corrigidos com as fontes do projeto; revisão 2: γ como entrada do usuário, dia 0 por vértices infectados, alocação iterativa, Natural Earth em GeoJSON, repositório público e resposta do professor em 04/11). Base para a implementação. Itens marcados como **[pendente]** serão resolvidos durante a implementação ou dependem de terceiros, e devem constar como pendentes nos documentos.
 
 ---
 
@@ -8,8 +8,8 @@ Tema 7, Teoria dos Grafos. Versão de planejamento, 03/11/2026 (revisão 1: incu
 
 O simulador é demonstrativo. Tem dois fluxos que compartilham o mesmo grafo:
 
-- **Fluxo de simulação:** o usuário configura os parâmetros antes de iniciar (R0, recuperação, mortalidade, incubação e nível de intervenção). Depois, apenas assiste. Isolamento e vacinação são decididos pelo sistema, de forma aleatória, sem controle do usuário.
-- **Fluxo de pandemias reais:** reproduz casos, mortes e recuperados de quatro surtos (COVID-19, Ebola 2014–2016, H1N1 2009 e SARS 2003), agregados por país. Recuperados só existem no SARS.
+- **Fluxo de simulação:** o usuário configura os parâmetros antes de iniciar (R0, taxa total de saída de I (γ), mortalidade, incubação e nível de intervenção). Depois, apenas assiste. Isolamento e vacinação são decididos pelo sistema, de forma aleatória, sem controle do usuário.
+- **Fluxo de pandemias reais:** reproduz casos e mortes de quatro surtos (COVID-19, Ebola 2014–2016, H1N1 2009 e SARS 2003), agregados por país. Recuperados só existem no SARS.
 
 Os parâmetros ficam travados após o início. Para mudar algo, reinicia-se. Os controles de reprodução (iniciar, pausar, retomar, avançar um passo, reiniciar e velocidade) continuam disponíveis.
 
@@ -35,7 +35,7 @@ Os dois fluxos usam o mesmo grafo global. Cada país é representado por um conj
 Para cada país *i*, com população *p_i*:
 
 ```
-n_i = max(n_min, round(N_total · p_i^α / Σ_j p_j^α))
+n_i ∝ p_i^α, com soma igual a N_total (procedimento iterativo abaixo)
 ```
 
 | Parâmetro | Valor | Situação |
@@ -112,7 +112,7 @@ custo_ij = −ln(p_ij)      (com p limitado a 0,999)
 
 Esta é a distância efetiva de Brockmann & Helbing (2013). Os custos são não negativos, e somar custos equivale a multiplicar probabilidades.
 
-**Calibração de β.** O usuário informa o R0 (RF01). Antes de iniciar, o sistema gera o grafo, roda simulações curtas com valores de teste de β e ajusta β por bisseção até o R0 medido ficar próximo do informado. A fórmula analítica de Newman para redes, R0 ≈ T·(⟨k²⟩/⟨k⟩ − 1), serve só como verificação. A configuração é travada depois da calibração. O tempo de calibração entra no benchmark.
+**Calibração de β.** O usuário informa o R0 (RF01). Antes de iniciar, o sistema gera o grafo, roda simulações curtas com valores de teste de β e ajusta β por bisseção até o R0 medido ficar próximo do informado. A fórmula analítica de Newman para redes, R0 ≈ T·(⟨k²⟩/⟨k⟩ − 1), serve só como verificação. A configuração é travada depois da calibração. O tempo de calibração entra no benchmark. As funções de probabilidade e custo recebem β como argumento e são chamadas pelo M3 depois da calibração; por isso o grafo guarda apenas o peso `w` (M1).
 
 **Justificativa:** usar `routes` diretamente como custo inverteria a semântica. O arquivo `edges.csv` guarda `routes` bruto; as transformações são feitas pelo aplicativo.
 
@@ -136,7 +136,7 @@ Os países sem nenhuma rota no OpenFlights ficam isolados na rede aérea, com av
 
 - **OWID (owid-covid-data.csv):** tabela mestra de países (ISO3, população e atributos). Não entra no aplicativo.
 - **OpenFlights (airports, routes, countries):** arestas entre países.
-- **Natural Earth 50m, Admin 0 Countries (versão 5.1.1):** polígonos dos países, para posição dos vértices e centroides. **[pendente: formato de entrada, shapefile ou GeoJSON, a alinhar nos documentos de dados e arquitetura. A conversão para GeoJSON é aceita por qualquer ferramenta.]**
+- **Natural Earth 50m, Admin 0 Countries (versão 5.1.1):** polígonos dos países, para posição dos vértices e centroides. Entrada convertida uma vez de shapefile para GeoJSON, por qualquer ferramenta, antes da execução do script (decidido).
 - **Kaggle (quatro surtos):** séries diárias de casos, mortes e recuperados.
 
 Todos os nomes de país são convertidos para ISO3 antes de qualquer cruzamento.
@@ -218,7 +218,7 @@ Um vértice I contamina um vizinho S com probabilidade `p_ij` (seção 2.6), em 
 ### 4.5 Vacinação
 
 - A partir de um dia de início, uma fração diária dos suscetíveis (S) é vacinada.
-- Cada vacinado passa a R com flag de vacinado, com probabilidade igual à eficácia (0,8, fixa). Os demais permanecem S.
+- Cada dia, uma fração dos suscetíveis é vacinada. Um vacinado vai para R, com flag de vacinado, com probabilidade igual à eficácia (0,8, fixa); se a vacina falhar, permanece S.
 
 ### 4.6 Morte
 
@@ -229,12 +229,12 @@ D é absorvente. Só se chega a D a partir de I, com probabilidade de mortalidad
 Definidos antes do início, e travados depois:
 
 - R0 (a partir dele, β é calibrado, seção 2.6);
-- taxa de recuperação;
+- taxa total de saída de I (γ);
 - taxa de mortalidade;
 - período de incubação (σ);
 - nível de intervenção (baixo, médio ou alto).
 
-Observação: a taxa de recuperação e a mortalidade definem γ e a divisão de saída (seção 4.2). **[pendente: confirmar nos documentos de apoio se o usuário informa γ ou o período de infecciosidade]**
+Decidido (14/11/2026): o usuário informa γ, a taxa total de saída de I; a mortalidade define a divisão da saída entre D e R (seção 4.2).
 
 ---
 
@@ -295,7 +295,7 @@ Não há modelo de subnotificação.
 
 ### 7.2 Alinhamento e escala
 
-- **Dia 0:** primeiro dia em que os casos atingem 10. O limiar é definido em fração da população do cenário, não em número absoluto, porque cada vértice representa cerca de N/8.000 pessoas.
+- **Dia 0 por país (decidido em 14/11/2026):** primeiro dia em que o número de vértices infectados do país atinge M. Na simulação, conta-se em vértices. No fluxo real, o mesmo M vira casos pela população do país: M × população_i / n_i, porque cada vértice representa essa fração da população. **[pendente: valor de M]**
 - **Escala:** comparação por frações (acumulados divididos pela população do país ou do cenário).
 
 ### 7.3 Métricas, em ordem de prioridade
@@ -344,7 +344,7 @@ No mapa, o polígono de cada país é pintado pela intensidade de casos acumulad
 ## 9. Estrutura de dados e execução
 
 - **Lista de adjacência**, com vetor de arestas ativas (máscara).
-- **NumPy liberado pelo professor (03/11/2026):** arrays de estado e máscara em NumPy, e CSR como otimização. O núcleo de grafo continua próprio.
+- **NumPy liberado pelo professor (04/11/2026):** arrays de estado e máscara em NumPy, e CSR como otimização. O núcleo de grafo continua próprio.
 - **Histórico de estados:** gravado durante a execução, em um buffer com um `bytearray` de estados por dia. A reprodução segue o buffer. O fluxo real carrega o histórico pronto dos arquivos processados, pelo mesmo player. Memória: cerca de 8 KB por dia, com 8 mil vértices.
 - A simulação roda em thread separada da interface.
 
@@ -399,7 +399,7 @@ Em todo passo: **S + E + I + R + D = N**, por país e no total.
 | k_max e escala | a definir |
 | d̄ | faixa de 6 a 10 |
 | σ (incubação) | H1N1 1,4 dias; SARS 4,0 dias, com faixa até 6,4 |
-| γ (saída de I) | calibrado por R0, r e σ, seção 6 |
+| γ (taxa total de saída de I) | entrada do usuário (RF01); valores de referência na seção 6 |
 | Níveis de intervenção | provisórios, a validar por sensibilidade |
 | Prazo de seleção do cenário regional | 60 dias, configurável |
 
@@ -426,13 +426,13 @@ Em todo passo: **S + E + I + R + D = N**, por país e no total.
 
 Pendências de planejamento, que serão resolvidas durante a implementação ou dependem de terceiros:
 
-- **Professor (respondido em 03/11):** NumPy no núcleo do grafo e `shapely` no script de preparação liberados; OpenFlights versionado sob ODbL, com atribuição.
-- **Repositório:** público ou privado (decide a licença do `edges.csv` e a obtenção dos CSVs do Kaggle).
+- **Professor (respondido em 04/11):** NumPy no núcleo do grafo e `shapely` no script de preparação liberados; OpenFlights versionado sob ODbL, com atribuição.
+- **Repositório:** público (D25, decidido). Os CSVs brutos do Kaggle ficam fora do Git.
 - **Fontes:** localizadas no projeto para R0 (Fraser et al., 2009; Lipsitch et al., 2003, leitura pendente), incubação (Lessler et al., 2009; Donnelly et al., 2003) e controle de surtos (Ferguson et al., 2005). Conferir as citações no original antes de constar no relatório. Isolamento e vacinação seguem como premissas, com sensibilidade.
 - **Benchmark:** N_total, β, k_max, escala e d̄.
 - **Níveis de intervenção:** validar por sensibilidade no protótipo.
 - **Dados:** recontagem de países com e sem rota pelo script, com a tabela de apelidos completa.
-- **Formato do Natural Earth:** alinhar nos documentos de dados e arquitetura.
+- **Dia 0 por país:** valor de M (seção 7.2).
 - **Limiar de 40 px e 36 px** para exibição de vértices: validar no protótipo.
 - **Casos de uso, responsabilidades e diagramas UML:** fora deste documento, a cargo de outros chats do grupo.
 - **Plano de desenvolvimento e cronograma:** em outro chat, depois de definido o restante do planejamento.

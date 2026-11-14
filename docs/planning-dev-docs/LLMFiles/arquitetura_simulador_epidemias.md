@@ -1,6 +1,6 @@
 # Arquitetura e estrutura de pastas: Simulador de Epidemias em Redes
 
-Tema 7, Teoria dos Grafos. Versão 0.5, 03/11/2026. Revisão do grupo. A v0.5 incorpora a divisão em 5 módulos e, como base, as decisões da v0.4: as decisões de 03/11/2026: universo de 229 entidades, pacote `datasets/` (em lugar de `dados/`), entrada do Natural Earth em GeoJSON, flag de vacinado na linha do tempo, regra de cor do fluxo real por intensidade, e módulos de configuração e exportação (RF07 e RF08). Itens marcados como **[pendente]** serão resolvidos durante a implementação ou dependem de terceiros.
+Tema 7, Teoria dos Grafos. Versão 0.6, 14/11/2026. Revisão do grupo. A v0.6 põe `world/` e as sementes no M1, usa nomes em inglês nos contratos e fixa γ como taxa total de saída de I. Mantém as decisões de 03/11/2026: universo de 229 entidades, pacote `datasets/` (em lugar de `dados/`), entrada do Natural Earth em GeoJSON, flag de vacinado na linha do tempo, regra de cor do fluxo real por intensidade, e módulos de configuração e exportação (RF07 e RF08). Itens marcados como **[pendente]** serão resolvidos durante a implementação ou dependem de terceiros.
 
 Este documento define as camadas, as interfaces entre elas e a organização do repositório. Depende da modelagem (grafo unificado, modelo SEIRD, isolamento e vacinação automáticos, dois fluxos sobre o mesmo grafo) e usa a stack já fechada (Python 3.12, PySide6, pyqtgraph, PyInstaller, pytest). Os diagramas UML detalhados (classes, componentes, sequência e atividades) ficam a cargo de outro membro do grupo e devem seguir os nomes definidos aqui.
 
@@ -8,7 +8,7 @@ Este documento define as camadas, as interfaces entre elas e a organização do 
 
 ## 1. Princípios
 
-1. **Núcleo sem interface.** As camadas de domínio (grafo, análise, epidemia, linha do tempo) não importam PySide6, pyqtgraph, pandas, NetworkX nem NumPy. Isso permite testar o núcleo com pytest sem janela e trocar a interface sem tocar nas regras.
+1. **Núcleo sem interface.** As camadas de domínio (grafo, análise, epidemia, linha do tempo) não importam PySide6, pyqtgraph, pandas nem NetworkX, e NumPy só aparece nas duas peças do ponto 9.2, item 5. Isso permite testar o núcleo com pytest sem janela e trocar a interface sem tocar nas regras.
 2. **Uma única fonte de verdade para a reprodução.** A interface nunca calcula a epidemia. Ela só lê uma linha do tempo. O fluxo de simulação e o fluxo real entregam a mesma interface de leitura, e o mesmo player serve aos dois.
 3. **Configuração congelada.** Os parâmetros são reunidos em um objeto imutável (`SimulationConfig`) antes do início. Depois de iniciada a simulação, nada desse objeto muda (RN01).
 4. **Determinismo por subsistema.** Cada subsistema aleatório (rede, paciente zero, isolamento, vacinação, rótulos, calibração) deriva sua semente da semente global e do próprio nome, por hash estável, e usa gerador próprio (F2, RN03).
@@ -55,10 +55,10 @@ Os módulos M1 a M5 do documento de apoio se mapeiam para os pacotes abaixo. A a
 
 | Módulo | Pacotes | Conteúdo principal |
 |---|---|---|
-| M1 Núcleo do grafo | `core/graph/` | `Graph` (lista de adjacência com máscara de arestas ativas), BFS, DFS, componentes conexos, Dijkstra |
+| M1 Núcleo do grafo e grafo unificado | `core/graph/`, `world/`, `core/seeds.py`, `core/errors.py` | `Graph` (lista de adjacência com máscara de arestas ativas), BFS, DFS, componentes conexos, Dijkstra; alocação de vértices, posições, grade espacial, conexões internas, arestas por rotas, pesos, funções de probabilidade e custo (recebem β como argumento), cenários; sementes e exceções |
 | M2 Análise de redes e benchmark | `core/analysis/`, `benchmarks/` | Grau, agrupamento, intermediação aproximada, propagação de rótulos, Tarjan (pontes e articulações); benchmark de desempenho (NetworkX só em `benchmarks/`) |
 | M3 Motor de simulação | `core/epidemic/`, `core/timeline/`, `app/simulation_session.py` | Parâmetros, calibração de β, modelo SEIRD por passo, isolamento e vacinação automáticos, engine, buffer de estados |
-| M4 Dados e grafo unificado | `datasets/`, `world/` | Carregamento dos processados, alocação de vértices, geometria, rede geométrica, arestas por rotas, cenários |
+| M4 Dados e comparação | `data/`, `datasets/`, `app/real_session.py`, `app/comparison.py` | Script de preparação, geometria processada (GeoJSON), leitura dos processados, fluxo real e comparação com dados reais (RF14) |
 | M5 Interface, mapa e resultados | `ui/`, `app/playback.py`, `app/panel_metrics.py`, `app/config_io.py`, `app/export.py`, `scripts/`, `tests/` | Tela inicial, configuração, mapa, player, gráficos (`ui/charts_view.py`), métricas do painel, salvar e carregar configuração (RF07), exportação de CSV e imagem (RF08), testes, executável |
 
 ---
@@ -154,8 +154,8 @@ class SimulationSession:
 class SimulationConfig:
     seed: int
     scenario: str                 # "global" ou "regional_ebola" (B4 da modelagem)
-    contagio_r0: float            # R0 informado pelo usuário; β é calibrado a partir dele (B2)
-    recuperacao_gamma: float      # ver ponto 9.2, item 9: definir se é taxa total de saída (γ)
+    r0: float            # R0 informado pelo usuário; β é calibrado a partir dele (B2)
+    exit_rate_gamma: float      # taxa total de saída de I (γ), informada pelo usuário (RF01)
     mortalidade: float            # fração das saídas de I que vão para D (item 5 do Bloco 2)
     incubacao_dias: float         # sigma = 1 / incubacao (H1N1 1,4 dias; SARS 4,0 dias)
     nivel_intervencao: Literal["baixo", "medio", "alto"]   # C5 da modelagem
@@ -175,11 +175,11 @@ Salvar e carregar (RF07) usam a mesma estrutura, serializada em JSON pela biblio
 
 Regras (verificadas por teste automático, em `tests/architecture/test_camadas.py`, com leitura estática dos imports):
 
-- `core` não importa `PySide6`, `pyqtgraph`, `pandas`, `networkx`, `numpy`, nem nada de `app`, `world`, `datasets` ou `ui`.
+- `core` não importa `PySide6`, `pyqtgraph`, `pandas`, `networkx`, nem nada de `app`, `world`, `datasets` ou `ui`.
 - `world` e `datasets` não importam `app` nem `ui`.
 - `app` não importa `ui`, `PySide6` nem `pyqtgraph`.
 - `networkx` aparece somente em `benchmarks/`.
-- `numpy` não aparece em `src/` enquanto `NUMPY_LIBERADO = False` (já previsto no setup).
+- `numpy` só pode ser importado em `core/timeline/buffer.py` e `core/epidemic/engine.py` (liberado pelo professor em 04/11/2026). Essa regra também é verificada pelo teste de arquitetura.
 
 Essas regras complementam as regras do `ruff` (`banned-api`) já previstas no setup. O teste estático cobre o que o ruff não cobre, como a direção entre pacotes internos.
 
@@ -283,6 +283,7 @@ simulador-epidemias/
 │   │   ├── __init__.py
 │   │   ├── simulation_session.py
 │   │   ├── real_session.py
+│   │   ├── comparison.py             # comparação com dados reais (RF14), M4
 │   │   ├── playback.py               # estado da reprodução: dia atual, velocidade, pausa
 │   │   ├── panel_metrics.py          # pico, duração, mortes, R0 efetivo (SEIR), percentual
 │   │   ├── config_io.py              # salvar e carregar configuração em JSON (RF07)
@@ -318,6 +319,7 @@ Observações sobre a estrutura:
 - O pacote de dados se chama `datasets/` (decisão C2, 03/11/2026), para não confundir com a pasta `data/` da raiz, que é de preparação offline. Os nomes de código ficam em inglês, e a documentação em português.
 - `core/` não tem nenhum arquivo que importe bibliotecas de terceiros. Essa é a garantia de que o núcleo continua "próprio", como exige o enunciado.
 - Os testes espelham os pacotes, o que facilita localizar o teste de cada módulo e atribuir responsáveis.
+- Donos dos pacotes (v0.6): M1 `core/graph`, `world`, `core/seeds.py`, `core/errors.py`; M2 `core/analysis`, `benchmarks`; M3 `core/epidemic`, `core/timeline`, `app/simulation_session.py`; M4 `data`, `datasets`, `app/real_session.py`, `app/comparison.py`; M5 `ui`, `app/playback.py`, `app/panel_metrics.py`, `app/config_io.py`, `app/export.py`, `scripts`, `tests/architecture`. Cada responsável testa o próprio pacote em `tests/<pacote>/`.
 - `main.py` continua sendo o ponto de entrada (`python -m epidemia.main`), como já previsto no setup e no `build_exe.ps1`.
 
 ---
@@ -342,6 +344,11 @@ Observações sobre a estrutura:
 | A12 | Regra de cor do fluxo real por intensidade de casos por 100 mil habitantes | Evita que o país fique sempre na cor de I quando R = 0 (item 4 do Bloco 2) |
 | A13 | Módulos `app/config_io.py` (RF07) e `app/export.py` (RF08), com a imagem em `ui/charts_view.py` | Dá lugar aos requisitos que a v0.3 não cobria (B9) |
 | A14 | Cálculo de β por bisseção antes do início, em `core/epidemic/calibration.py` | Torna o R0 informado pelo usuário efetivo no grafo gerado (B2) |
+| A15 | M1 possui `world/`, `core/seeds.py` e `core/errors.py` | Grafo unificado e sementes são usados antes do M3; mantém o escopo da divisão da v0.1 (aprovado em 14/11) |
+| A16 | Funções de probabilidade e custo recebem β como argumento e são chamadas pelo M3 depois da calibração | Remove o ciclo M1–M3: β só existe depois de construído o grafo |
+| A17 | γ é a taxa total de saída de I, informada pelo usuário; a mortalidade divide a saída entre D e R | Decisão de 14/11 (modelagem 4.2 e 4.7) |
+| A18 | Dia 0 de um país: primeiro dia em que o número de vértices infectados atinge M (valor pendente) | Decisão de 14/11; no fluxo real, M vira casos pela população do país (modelagem 7.2) |
+| A19 | Nomes de código em inglês nos contratos (`Graph`, `CountryInfo`, `Timeline`, `SimulationConfig`) | Decisão de 14/11 (reforça C2) |
 
 ### 9.2 Pontos para discutir
 
@@ -353,7 +360,7 @@ Observações sobre a estrutura:
 
 4. **Geometria no aplicativo (pendência do setup).** O sorteio de posições e o ponto-em-polígono usam só a biblioteca padrão, em `world/geometry.py`. Decidido: manter assim, sem `shapely` no aplicativo.
 
-5. **Efeito da liberação de NumPy.** Proposta: não expor NumPy fora de `core/timeline/buffer.py` e `core/epidemic/engine.py`. Assim, a troca fica confinada a essas duas peças e aos testes. **Liberado pelo professor (03/11/2026); a proposta de confinamento é mantida.**
+5. **Efeito da liberação de NumPy.** Liberado pelo professor em 04/11/2026. Confinamento mantido: NumPy só em `core/timeline/buffer.py` e `core/epidemic/engine.py`.
 
 6. **Universo de entidades.** Resolvido: 229 entidades (dados v0.7, modelagem). O `world/` lê o número de `countries.csv`, então o código não depende do valor.
 
@@ -361,7 +368,8 @@ Observações sobre a estrutura:
 
 8. **Tratamento de erros (RNF08).** Proposta: exceções próprias em `core/errors.py` (ex.: `ParametroForaDaFaixa`, `DatasetInvalido`), capturadas pela `ui` e exibidas em caixa de diálogo.
 
-9. **Parâmetros da configuração (γ).** [discutir] O modelo define γ como taxa total de saída de I, dividida entre D e R pela mortalidade (modelagem 4.2). A `SimulationConfig` atual traz `recuperacao_gamma` e `mortalidade`. O grupo precisa decidir se o usuário informa γ diretamente (e a mortalidade divide a saída) ou a taxa de recuperação (e γ é calculado). Isso afeta o campo de RF01.
+9. **Parâmetros da configuração (γ).** Decidido em 14/11/2026: o usuário informa γ, a taxa total de saída de I; a mortalidade divide a saída entre D e R. Campo `exit_rate_gamma` em `SimulationConfig` (seção 4.4).
+10. **Dia 0 por país.** Decidido em 14/11/2026: primeiro dia em que o número de vértices infectados de um país atinge M. O valor de M está pendente (modelagem 7.2).
 
 ---
 
@@ -369,8 +377,9 @@ Observações sobre a estrutura:
 
 - **[pendente]** Conferir os valores iniciais do limiar (40 px de entrada, 36 px de saída) no protótipo, na máquina mais fraca do grupo.
 - **[pendente]** Conferir o `countries.geojson` gerado pelo script de dados contra o formato usado por `datasets/` (D20 dos dados). O arquivo bruto do Natural Earth já foi recebido e será convertido para GeoJSON antes da execução do script.
-- **Resolvido (03/11/2026):** o professor liberou NumPy no núcleo (ponto 9.2, item 5) e uso de shapely no script de dados.
-- **[pendente]** Decisão sobre o campo de γ na configuração (ponto 9.2, item 9).
+- **Resolvido (04/11/2026):** o professor liberou NumPy no núcleo (ponto 9.2, item 5) e uso de shapely no script de dados.
+- **Resolvido (14/11/2026):** o campo γ é a taxa total de saída de I (ponto 9.2, item 9).
+- **[pendente]** Valor de M, número mínimo de vértices infectados para o dia 0 de um país (ponto 9.2, item 10).
 - **[pendente]** Divisão de tarefas entre os integrantes, definida pelo grupo, fora dos documentos.
 - **[pendente]** Diagramas UML (outro membro), com os nomes desta versão.
 - Depois de validado: criar o esqueleto de pastas e os `__init__.py` no repositório, e substituir a prova de conceito de `main.py` pelo esqueleto da arquitetura, mantendo a verificação de FPS do setup.
@@ -384,5 +393,6 @@ Observações sobre a estrutura:
 | 0.1 | 17/10/2026 | Primeira versão: camadas, interfaces e estrutura de pastas. |
 | 0.2 | 31/10/2026 | Regra de renderização do mapa; respostas às pendências de implementação. |
 | 0.3 | 03/11/2026 | Valores iniciais do limiar de vértices (40 px e 36 px); decisões 9.1 e 9.2. |
-| 0.5 | 03/11/2026 | Divisão em 5 módulos (seção 3): M6 incorporado ao M5; `benchmarks/` atribuído ao M2; `app/panel_metrics.py`, `app/config_io.py`, `app/export.py` e `ui/charts_view.py` passam ao M5. Referências a M6 removidas. |
 | 0.4 | 03/11/2026 | Pacote `dados/` renomeado para `datasets/` (C2); flags de isolado e vacinado no byte de vértice (4.1, A10); entrada do Natural Earth em GeoJSON (A11); cor do fluxo real por intensidade (4.1, A12); módulos de RF07 e RF08 (3, 8, A13); calibração de β (4.3, 8, A14); pontos de discussão atualizados, com decisões de gravação (E2), universo de 229 entidades e nomes em inglês (C2); novo ponto sobre o campo de γ na configuração (9.2, item 9). |
+| 0.5 | 03/11/2026 | Divisão em 5 módulos (seção 3): M6 incorporado ao M5; `benchmarks/` atribuído ao M2; `app/panel_metrics.py`, `app/config_io.py`, `app/export.py` e `ui/charts_view.py` passam ao M5. Referências a M6 removidas. |
+| 0.6 | 14/11/2026 | `world/` e sementes no M1 (escopo da v0.1 restabelecido); M4 com `data/`, `datasets/`, `real_session` e `comparison`; nomes em inglês nos contratos; γ como taxa total de saída de I (4.4, A17); β como argumento das funções de probabilidade e custo (A16); dia 0 por vértices infectados, com M pendente (A18, 9.2, item 10); regra de NumPy atualizada (5); ordem do histórico corrigida. |

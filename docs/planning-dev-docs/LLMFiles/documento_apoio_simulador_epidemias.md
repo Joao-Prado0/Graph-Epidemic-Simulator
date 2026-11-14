@@ -2,7 +2,7 @@
 
 Documento de apoio ao projeto – Teoria dos Grafos (Tema 7)
 
-*Versão 0.7 – revisão do grupo – 03/11/2026*
+*Versão 0.8 – revisão do grupo – 14/11/2026*
 
 **Para que serve este documento.** É material de apoio interno do grupo (5 integrantes): reúne o que já foi discutido e decidido, as propostas em avaliação e os requisitos. O relatório oficial (LaTeX, template SBC, 12 a 15 páginas) será escrito pelo grupo; este texto serve de base e pode ser reaproveitado nele. Itens marcados como **proposta** ainda não foram validados pelo grupo. Itens marcados como **[pendente]** serão resolvidos durante a implementação ou dependem de terceiros.
 
@@ -85,7 +85,7 @@ Estudantes e o professor avaliador, que usam a ferramenta para explorar cenário
 | Rede (simulação) | Geométrica aleatória. As demais (Erdős–Rényi, Barabási–Albert, Watts–Strogatz) ficam como extra opcional. |
 | Isolamento e vacinação | Automáticos e aleatórios, simulando comportamento realista; sem controle do usuário. |
 | Comunidades | Detecção por propagação de rótulos (opção mais simples). |
-| Stack | Stack tecnológica confirmada (seção 3.2); o professor liberou o uso de NumPy no núcleo (03/11/2026). |
+| Stack | Stack tecnológica confirmada (seção 3.2); o professor liberou o uso de NumPy no núcleo (04/11/2026). |
 | Dados | Datasets do Kaggle com informações de pandemias reais (seção 3.4), mais OWID e OpenFlights. |
 | Equipe | 5 integrantes; o relatório oficial em LaTeX é escrito pelo grupo. |
 | Nomes | Código em inglês; documentação em português (decisão de 03/11/2026). |
@@ -98,7 +98,7 @@ Estudantes e o professor avaliador, que usam a ferramenta para explorar cenário
 | Linguagem | Python 3.12 (mesma versão para todos os integrantes). |
 | Interface | PySide6 (Qt). Mapa e vértices desenhados com QPainter, em lote, para suportar milhares de pontos animados. |
 | Gráficos | pyqtgraph, para as curvas em tempo real integradas à interface Qt. |
-| Núcleo do grafo | Estrutura própria (lista de adjacência), com NumPy para arrays de estado e uma representação CSR onde o desempenho exigir. NumPy liberado pelo professor (03/11/2026). NetworkX apenas no benchmark. |
+| Núcleo do grafo | Estrutura própria (lista de adjacência), com NumPy para arrays de estado e uma representação CSR onde o desempenho exigir. NumPy liberado pelo professor (04/11/2026). NetworkX apenas no benchmark. |
 | Simulação | Executada em thread separada (QThread), comunicando-se com a interface por sinais do Qt. |
 | Mapa | GeoJSON do mundo (Natural Earth, convertido de shapefile uma vez antes do processamento), desenhado com QPainter. |
 | Empacotamento | PyInstaller. Nuitka fica como alternativa caso haja problema de build ou desempenho. |
@@ -157,8 +157,8 @@ Prioridades: Essencial (necessário para a entrega), Desejável (agrega valor se
 
 | ID | Requisito | Prioridade | Módulo |
 | --- | --- | --- | --- |
-| RF01 | Configurar, antes de iniciar, os parâmetros da doença: R0 (a partir dele, o sistema calibra β), taxa de recuperação, taxa de mortalidade, período de incubação e nível de intervenção. Os parâmetros ficam travados após o início. **[pendente: definir se o campo é γ total ou taxa de recuperação; ver arquitetura, ponto 9.2, item 9.]** | Essencial | M3, M5 |
-| RF02 | Gerar o grafo unificado: países com vértices proporcionais à população, conexões internas geométricas e arestas entre países por rotas aéreas, com semente configurável e tamanho definido por benchmark. | Essencial | M4 |
+| RF01 | Configurar, antes de iniciar, os parâmetros da doença: R0 (a partir dele, o sistema calibra β), taxa total de saída de I (γ), taxa de mortalidade (divide a saída de I entre óbito e recuperação), período de incubação e nível de intervenção. Os parâmetros ficam travados após o início. | Essencial | M3, M5 |
+| RF02 | Gerar o grafo unificado: países com vértices proporcionais à população, conexões internas geométricas e arestas entre países por rotas aéreas, com semente configurável e tamanho definido por benchmark. | Essencial | M1 |
 | RF03 | Definir o(s) paciente(s) zero, de forma manual (clique no mapa) ou aleatória. | Essencial | M3, M5 |
 | RF04 | Controlar a reprodução da simulação: iniciar, pausar, retomar, avançar um passo, reiniciar e ajustar a velocidade (controles que não alteram o rumo da epidemia). | Essencial | M3, M5 |
 | RF05 | Isolamento automático: o sistema isola vértices infectados de forma aleatória, simulando comportamento realista (probabilidade por passo e duração fixas, derivadas do nível configurado), sem controle do usuário sobre quem é isolado. Vale apenas para o fluxo de simulação. | Essencial | M3 |
@@ -172,10 +172,10 @@ Prioridades: Essencial (necessário para a entrega), Desejável (agrega valor se
 | ID | Requisito | Prioridade | Módulo |
 | --- | --- | --- | --- |
 | RF09 | Selecionar a pandemia a visualizar entre as disponíveis (COVID-19, Ebola, H1N1, SARS). O carregamento dos dados é tarefa interna (RNF10), não ação do usuário. | Essencial | M4, M5 |
-| RF10 | Construir o grafo unificado a partir das rotas aéreas (arestas entre países ligando vértices dos dois países). | Essencial | M4 |
+| RF10 | Construir o grafo unificado a partir das rotas aéreas (arestas entre países ligando vértices dos dois países). | Essencial | M1 |
 | RF11 | Reproduzir a evolução temporal com linha do tempo (play, pausa e seleção de data). | Essencial | M5 |
 | RF12 | Exibir casos, mortes e recuperados por país no mapa (cor do polígono pela intensidade de casos por 100 mil habitantes, seção 3.5) e em gráficos. | Essencial | M4, M5 |
-| RF13 | Montar o cenário global, para os dois fluxos (simulação e pandemias reais), com vértices por país proporcionais à população (fórmula da seção 3.3). | Essencial | M4 |
+| RF13 | Montar o cenário global, para os dois fluxos (simulação e pandemias reais), com vértices por país proporcionais à população (fórmula da seção 3.3). | Essencial | M1 |
 | RF14 | Comparar a curva simulada pelo modelo com a curva real, agregando os estados dos vértices por país. Casos são comparados como I + R + D e mortes como D; recuperados só no SARS. | Extra | M3, M4, M5 |
 
 ### 4.3 Requisitos funcionais – grafos e análise
@@ -233,10 +233,10 @@ Base para discutir a divisão entre os 5 integrantes. Cada módulo deve render a
 
 | Módulo | Nome | Escopo |
 | --- | --- | --- |
-| M1 | Núcleo do grafo | Estrutura de dados, inserção e remoção, BFS, DFS, componentes conexos, Dijkstra. |
+| M1 | Núcleo do grafo e grafo unificado | Estrutura de dados, inserção e remoção, BFS, DFS, componentes conexos, Dijkstra; alocação de vértices por população, posições, conexões geométricas internas, arestas entre países, pesos, funções de probabilidade e custo, cenários; sementes e exceções próprias. |
 | M2 | Análise de redes e benchmark | Centralidades, agrupamento (local e global), comunidades, pontos de articulação e pontes. Benchmark de desempenho (com NetworkX só aqui). |
 | M3 | Motor de simulação | Modelo de compartimentos, calibração de β, parâmetros, isolamento e vacinação automáticos, gravação do histórico de estados. |
-| M4 | Dados e construção do grafo | Dados pré-processados dos datasets, construção do grafo unificado (alocação de vértices por população, conexões geométricas internas e arestas entre países pelas rotas aéreas), cenários. Outras redes para as conexões internas como extra. |
+| M4 | Dados e comparação com dados reais | Script de preparação dos dados, geometria processada (GeoJSON), leitura dos processados, fluxo real e comparação com dados reais (RF14). |
 | M5 | Interface, mapa e resultados | Janela, renderização inspirada no Plague Inc, tela de configuração prévia, player com linha do tempo, animações, gráficos, configuração salva e carregada (RF07), exportação (RF08), métricas do painel, testes, executável e consolidação de diagramas para o relatório. |
 
 ---
@@ -245,7 +245,7 @@ Base para discutir a divisão entre os 5 integrantes. Cada módulo deve render a
 
 **Dependem de terceiros ou de medição:**
 
-- **Resolvido (03/11/2026):** o professor liberou NumPy no núcleo do grafo e uso de shapely no script de preparação de dados. O arquivo de arestas derivado do OpenFlights é versionado em `data/processed/edges.csv`, com licença ODbL e atribuição no relatório e no README.
+- **Resolvido (04/11/2026):** o professor liberou NumPy no núcleo do grafo e uso de shapely no script de preparação de dados. O arquivo de arestas derivado do OpenFlights é versionado em `data/processed/edges.csv`, com licença ODbL e atribuição no relatório e no README.
 - **[pendente]** Verificar que PySide6, pyqtgraph e PyInstaller instalam e rodam nas máquinas dos 5 integrantes, e fixar as versões no requirements.txt.
 - **[pendente]** Conferir no protótipo, na máquina mais fraca do grupo, os valores de 40 px (entrada) e 36 px (saída) para exibição dos vértices.
 - **[pendente]** Definir por benchmark: N_total (provisório, 8.000), β, k_max, escala e d̄.
@@ -254,7 +254,8 @@ Base para discutir a divisão entre os 5 integrantes. Cada módulo deve render a
 
 **Decisões do grupo:**
 
-- **[pendente]** Campo de γ na configuração: taxa total de saída de I ou taxa de recuperação (arquitetura, ponto 9.2, item 9).
+- **Decidido (14/11/2026):** o campo de RF01 é γ, taxa total de saída de I (arquitetura, ponto 9.2, item 9).
+- **[pendente]** Valor de M: número mínimo de vértices infectados por país para o dia 0 (modelagem, seção 7.2).
 - **[pendente]** Definir os responsáveis por módulo.
 - **[pendente]** Plano de desenvolvimento e cronograma (outro chat, depois do restante do planejamento).
 
@@ -268,7 +269,7 @@ Base para discutir a divisão entre os 5 integrantes. Cada módulo deve render a
 - Diagramas UML (classes, componentes, sequência e atividades), preferencialmente em PlantUML ou Mermaid, incluindo a divisão do mapa em duas camadas (polígonos dos países e vértices). Em elaboração por outro integrante.
 - Plano de desenvolvimento: responsabilidades por membro e cronograma até 22/11. Em outro chat, depois de definido o restante do planejamento.
 
-Já concluídos: modelagem (versão 1, revisada em 03/11/2026), documento de dados (versão 0.7) e arquitetura (versão 0.5).
+Já concluídos: modelagem (revisão 2, 14/11/2026), documento de dados (versão 0.8) e arquitetura (versão 0.6).
 
 ---
 
@@ -283,3 +284,4 @@ Já concluídos: modelagem (versão 1, revisada em 03/11/2026), documento de dad
 | 0.5 | 03/11/2026 | Regra de renderização do mapa: polígono pelo status dominante e vértices a partir de 40 px (36 px para ocultar); seção 3.5 com a regra de status dominante do fluxo real. |
 | 0.6 | 03/11/2026 | Correções: período do H1N1 (24/04 a 06/07/2009); COVID sem recuperados (D12); Python 3.12 para todos; alocação iterativa com total fixo, n_min = 12, α = 0,5 e N_total provisório de 8.000 (3.3); HIV descartado e colunas conferidas (3.4). Decisões de modelagem incorporadas: flags de isolado e vacinado; cor do fluxo real por intensidade (3.5, RF12, RF22); fonte das arestas (3.6); cenário regional (3.3); RF01, RF06, RF14 e RF21 atualizados (R0 efetivo SEIR, comparação por I + R + D e D). Módulos de RF07 e RF08 (4.1, 5). Pontos em aberto reorganizados (6). Repositório público e nomes em inglês (3.1). Arquitetura e modelagem marcadas como concluídas (7). |
 | 0.7 | 03/11/2026 | Equipe de 5 integrantes; divisão em 5 módulos (seção 5): M6 incorporado ao M5 (resultados, RF07, RF08) e benchmark movido para o M2. Atribuições de RF07, RF08, RF14, RF21 e RF24 atualizadas. Arquitetura referenciada na versão 0.5. |
+| 0.8 | 14/11/2026 | RF01: campo de γ como taxa total de saída de I; RF02, RF10 e RF13 passam ao M1 (construção do grafo unificado); M1 e M4 redefinidos na seção 5 (M1 com `world/`, sementes e erros; M4 com dados e comparação); valor de M do dia 0 pendente (seção 6); data da resposta do professor corrigida para 04/11/2026. |

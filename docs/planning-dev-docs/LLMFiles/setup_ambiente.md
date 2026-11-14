@@ -1,6 +1,6 @@
 # Setup do ambiente: Simulador de Epidemias em Redes
 
-Passo a passo para colocar o projeto de pé em Windows, com VS Code, Python 3.12 e GitHub. Versão 1.2, 03/11/2026. Complementa o documento de apoio (v0.7), o documento de dados (v0.7), o documento de modelagem (revisão 1) e o documento de arquitetura (v0.5).
+Passo a passo para colocar o projeto de pé em Windows, com VS Code, Python 3.12 e GitHub. Versão 1.3, 14/11/2026. Complementa o documento de apoio (v0.8), o documento de dados (v0.8), o documento de modelagem (revisão 2) e o documento de arquitetura (v0.6).
 
 ## 0. Como ler este guia
 
@@ -19,7 +19,7 @@ O ambiente foi desenhado a partir das decisões já fechadas:
 | Decisão do projeto | Efeito no setup |
 |---|---|
 | Sem bibliotecas prontas de grafo (NetworkX só no benchmark) | NetworkX fica em `requirements-dev.txt`, em uma pasta `benchmarks/` separada, com regra automática (Ruff e pytest) que barra o uso em `src/` |
-| NumPy liberado pelo professor (03/11/2026) | Pode ser usado no núcleo do grafo; a versão entra no `requirements.txt` ao ser fixada (passo 15) |
+| NumPy liberado pelo professor (04/11/2026) | Pode ser usado no núcleo do grafo; a versão entra no `requirements.txt` ao ser fixada (passo 15) |
 | Scripts de dados rodam offline, com pandas fora do `requirements.txt` do app (D5 a D7) | Segundo ambiente virtual (`.venv-data`), usado só por quem prepara os dados |
 | Brutos fora do repositório; `data/processed/` versionado (D6) | Pasta de brutos fora do projeto; `data/` com README, tabela de apelidos e `processed/` |
 | Repositório público, com dados derivados sob ODbL (D25) | Licença ODbL em `data/LICENSE-ODbL.txt`; licença do código na raiz; CSVs brutos do Kaggle fora do Git |
@@ -35,7 +35,7 @@ O ambiente foi desenhado a partir das decisões já fechadas:
 
 ## 1. Instalar as ferramentas (todos)
 
-1. **Python 3.12.10** em python.org/downloads (a mesma versão 3.12 para todos). No instalador, marque **"Add python.exe to PATH"** e mantenha o **py launcher**.
+1. **Python 3.12.x** em python.org/downloads (a mesma versão 3.12 para todos). No instalador, marque **"Add python.exe to PATH"** e mantenha o **py launcher**.
 2. **Git for Windows** em git-scm.com (opções padrão).
 3. **VS Code** em code.visualstudio.com.
 4. Conta no **GitHub**, com o mesmo e-mail que será usado nos commits.
@@ -49,6 +49,19 @@ code --version
 ```
 
 Se `py -3.12` falhar, o Windows pode estar usando o atalho da Microsoft Store. Vá em Configurações, Aplicativos, Configurações avançadas, Aliases de execução de aplicativo, e desligue `python.exe` e `python3.exe`.
+
+## 2. Configurar o Git (todos)
+
+Os commits individuais serão avaliados, então cada pessoa precisa do **próprio nome e e-mail**, o mesmo do GitHub:
+
+```powershell
+git config --global user.name "Seu Nome"
+git config --global user.email "seu-email@exemplo.com"
+git config --global core.autocrlf true
+git config --global init.defaultBranch main
+```
+
+Commit com e-mail diferente do cadastrado no GitHub não aparece como contribuição da pessoa. Vale conferir isso com cada integrante.
 
 ## 3. Criar o repositório no GitHub (uma pessoa)
 
@@ -176,7 +189,7 @@ PySide6
 pyqtgraph
 ```
 
-NumPy não aparece de propósito. O pyqtgraph o instala como dependência, então ele estará nas máquinas de todos, e o professor liberou o NumPy no núcleo do grafo (03/11/2026). O teste do passo 4.3 precisa ser ajustado na implementação (ver pendências).
+NumPy não aparece de propósito. O pyqtgraph o instala como dependência, então ele estará nas máquinas de todos, e o professor liberou o NumPy no núcleo do grafo (04/11/2026). O teste do passo 4.3 precisa ser ajustado na implementação (ver pendências).
 
 **`requirements-dev.txt`** (desenvolvimento, testes, benchmark e empacotamento)
 
@@ -293,7 +306,7 @@ import pytest
 
 RAIZ = Path(__file__).resolve().parents[1]
 
-# Trocar para True quando o professor confirmar o uso de NumPy no núcleo do grafo.
+# Liberado pelo professor em 04/11/2026: trocar para True na implementação.
 NUMPY_LIBERADO = False
 
 
@@ -496,7 +509,7 @@ if __name__ == "__main__":
 
 Copie para `docs/` os documentos do projeto, com as versões atuais:
 
-- `modelagem_simulador_epidemias.md` (revisão 1);
+- `modelagem_simulador_epidemias.md` (revisão 2);
 - `dados_datasets_e_preparacao.md` (v0.7);
 - `arquitetura.md` (v0.4), a partir de `arquitetura_simulador_epidemias.md`;
 - `documento_apoio_simulador_epidemias.md` (v0.6, em markdown);
@@ -534,7 +547,7 @@ py -3.12 -m venv .venv
 python --version
 ```
 
-Deve mostrar 3.12.10. Se mostrar outra versão, apague a pasta `.venv` e refaça. Se o PowerShell bloquear o script de ativação, rode uma vez:
+Deve mostrar 3.12.x. Se mostrar outra versão, apague a pasta `.venv` e refaça. Se o PowerShell bloquear o script de ativação, rode uma vez:
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
@@ -586,7 +599,7 @@ ruff check .
 ruff format --check .
 ```
 
-A janela da prova de conceito deve abrir, mostrando 8 mil pontos mudando de cor, uma curva de infectados e, embaixo, a linha com o FPS. Deixe rodar uns 10 segundos e **anote o FPS**, que é o primeiro dado do benchmark do RNF02 (meta de 20 quadros por segundo ou mais). Feche a janela pelo X e confirme que o processo termina sem travar, o que valida o encerramento da thread. (João Prado 07/11 fps com media em 40)
+A janela da prova de conceito deve abrir, mostrando 8 mil pontos mudando de cor, uma curva de infectados e, embaixo, a linha com o FPS. Deixe rodar uns 10 segundos e **anote o FPS**, que é o primeiro dado do benchmark do RNF02 (meta de 20 quadros por segundo ou mais). Feche a janela pelo X e confirme que o processo termina sem travar, o que valida o encerramento da thread.
 
 Depois gere o executável:
 
@@ -596,7 +609,16 @@ Depois gere o executável:
 
 O resultado fica em `dist\SimuladorEpidemias\`. Abra o `.exe` **fora do VS Code** e veja se a janela aparece e se o FPS é parecido com o do modo normal. A pasta é mais confiável com Qt que `--onefile`, que abre mais devagar; o formato final do executável fica para a fase de empacotamento.
 
-Se o Windows Defender marcar o executável como suspeito (acontece com executáveis gerados por PyInstaller), anote, porque isso precisa ser considerado na entrega. Nuitka só entra se houver problema de build ou de desempenho. (João Prado 07/11 não aconteceu, abriu normal)
+Se o Windows Defender marcar o executável como suspeito (acontece com executáveis gerados por PyInstaller), anote, porque isso precisa ser considerado na entrega. Nuitka só entra se houver problema de build ou de desempenho.
+
+## 10. Rotina de Git do grupo
+
+1. Cada tarefa em uma **branch própria**: `git switch -c feat/nome-da-tarefa`.
+2. Commits pequenos e frequentes, com mensagens descritivas (`Adiciona BFS ao nucleo do grafo`), porque os commits individuais serão avaliados.
+3. Abrir **pull request** e pedir revisão de pelo menos uma pessoa.
+4. Antes de começar o dia: `git switch main` e `git pull`.
+5. Nunca versionar `.venv`, `.venv-data`, `dist/`, `build/` nem os brutos dos datasets. Só `data/processed/`, o script, a tabela de apelidos e a licença dos dados entram no Git.
+6. Cada integrante verifica, no GitHub, se seus commits aparecem com o seu nome.
 
 ## 11. Fixar as versões (uma pessoa, depois que todos validarem)
 
@@ -620,7 +642,7 @@ Cada integrante devolve ao grupo:
 
 | Item | Resultado |
 |---|---|
-| `python --version` dentro do `.venv` | 3.12.10 |
+| `python --version` dentro do `.venv` | 3.12.x |
 | `pip install -r requirements-dev.txt` e `pip install -e .` sem erro | sim/não |
 | Janela da prova de conceito abre e fecha sem travar | sim/não |
 | FPS com 8.000 vértices (modo Python) | número |
@@ -652,8 +674,8 @@ Resolvidos nesta versão e removidos da lista: local do GeoJSON do mapa (`data/p
 
 Continuam abertos:
 
-- **NumPy no núcleo do grafo (D17): liberado pelo professor (03/11/2026).** Ajustar `NUMPY_LIBERADO` em `tests/test_regras_projeto.py` e listar `numpy` no `requirements.txt` na implementação.
-- **shapely no script de preparação: liberado pelo professor (03/11/2026).** A união de polígonos e o centroide usam shapely.
+- **NumPy no núcleo do grafo (D17): liberado pelo professor (04/11/2026).** Ajustar `NUMPY_LIBERADO` em `tests/test_regras_projeto.py` e listar `numpy` no `requirements.txt` na implementação.
+- **shapely no script de preparação: liberado pelo professor (04/11/2026).** A união de polígonos e o centroide usam shapely.
 - **[pendente] Licença do código (raiz):** escolher, por exemplo MIT. Ela não cobre `data/`.
 - **[pendente] Dados no executável (RNF10):** acrescentar `--add-data "data\processed;data\processed"` ao `build_exe.ps1` e acessar os arquivos por caminho que funcione dentro do executável, quando o aplicativo passar a ler dados.
 - **[pendente] Testes de arquitetura:** `tests/architecture/test_camadas.py` será criado junto com o esqueleto de `src/epidemia/`.
@@ -668,3 +690,4 @@ Continuam abertos:
 | 1.0 | 31/10/2026 | Primeira versão do guia de setup. |
 | 1.1 | 03/11/2026 | Python 3.12 restrito no `pyproject.toml`; `pyshp` removido do ambiente de dados e conversão do Natural Earth para GeoJSON incluída no passo 7; licença ODbL em `data/` e licença do código na raiz (passos 3, 4.1, 4.2 e 10); repositório público (passo 3); cópias dos documentos atualizadas (4.6); checklist com o teste dos limiares de vértices (13); pendências atualizadas (15). |
 | 1.2 | 03/11/2026 | Equipe de 5 integrantes (§3, §5, §11 e tabela inicial de avaliação); documento de apoio na v0.7 e arquitetura na v0.5, que dividem o trabalho em 5 módulos. |
+| 1.3 | 14/11/2026 | Datas da resposta do professor corrigidas para 04/11/2026; referências atualizadas para apoio v0.8, dados v0.8, modelagem rev. 2 e arquitetura v0.6. |
