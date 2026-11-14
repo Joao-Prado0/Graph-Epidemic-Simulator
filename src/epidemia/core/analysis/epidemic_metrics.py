@@ -21,7 +21,7 @@ STATE_I = 2
 STATE_R = 3
 STATE_D = 4
 
-FLAG_ISOLATED = 1 << 3    # bit 3
+FLAG_ISOLATED = 1 << 3  # bit 3
 FLAG_VACCINATED = 1 << 4  # bit 4
 
 
@@ -51,11 +51,7 @@ class CompartmentCounts:
     def total_vertices(self) -> int:
         """Soma de todos os compartimentos (invariante S + E + I + R + D = N)."""
         return (
-            self.susceptible
-            + self.exposed
-            + self.infected
-            + self.total_recovered
-            + self.deceased
+            self.susceptible + self.exposed + self.infected + self.total_recovered + self.deceased
         )
 
 
@@ -75,7 +71,9 @@ class EpidemicSummary:
     effective_r0: float | None = None
 
 
-def extract_compartment_counts(vertex_bytes: bytes | bytearray | Sequence[int]) -> CompartmentCounts:
+def extract_compartment_counts(
+    vertex_bytes: bytes | bytearray | Sequence[int],
+) -> CompartmentCounts:
     """Extrai as contagens de cada compartimento e flags a partir dos bytes do dia.
 
     Segue a codificação da Arquitetura (seção 4.1):
