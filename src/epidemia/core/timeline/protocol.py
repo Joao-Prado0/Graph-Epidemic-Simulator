@@ -50,7 +50,8 @@ __all__ = [
 
 def encode_vertex_byte(state: int, *, isolated: bool = False, vaccinated: bool = False) -> int:
     """Empacota estado e flags em um único byte de vértice. Complexidade: O(1)."""
-    if isinstance(state, bool) or not isinstance(state, int) or not (STATE_S <= state <= STATE_D):
+    valid = isinstance(state, int) and not isinstance(state, bool)
+    if not valid or not (STATE_S <= state <= STATE_D):
         raise ParameterOutOfRangeError(f"Estado epidemiológico inválido: {state!r}.")
     value = state
     if isolated:
@@ -126,7 +127,8 @@ class CountryCounts:
     @property
     def total_vertices(self) -> int:
         """Soma S + E + I + R + D (invariante de conservação, Modelagem 11.2)."""
-        return self.susceptible + self.exposed + self.infected + self.total_recovered + self.deceased
+        parts = (self.susceptible, self.exposed, self.infected, self.total_recovered, self.deceased)
+        return sum(parts)
 
     @property
     def dominant_state(self) -> int:
