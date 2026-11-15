@@ -252,7 +252,7 @@ Eficácia da vacina: 0,8, fixa.
 
 **Justificativa.** São escolhas de projeto, não derivadas dos datasets. Os níveis são monotônicos em intensidade de intervenção.
 
-**Status:** provisório. **[pendente: validar por sensibilidade no protótipo (se os níveis produzem diferenças visíveis no pico e no tamanho final) e levantar fontes da literatura sobre medidas não farmacológicas e vacinação, conforme a pesquisa em andamento]**. Recomendação para o relatório: tratar os valores como premissas, com análise de sensibilidade.
+**Status:** validado por teste automatizado de sensibilidade no M3 (`tests/app/test_simulation_session.py::test_intervention_levels_monotonic_impact_reduction`), demonstrando redução monotônica dos casos acumulados (`nenhum > baixo > medio > alto`). **[pendente: levantar fontes da literatura sobre medidas não farmacológicas e vacinação para o texto do relatório]**. Recomendação para o relatório: tratar os valores como premissas, com análise de sensibilidade.
 
 ---
 
@@ -295,7 +295,7 @@ Não há modelo de subnotificação.
 
 ### 7.2 Alinhamento e escala
 
-- **Dia 0 por país (decidido em 14/11/2026):** primeiro dia em que o número de vértices infectados do país atinge M. Na simulação, conta-se em vértices. No fluxo real, o mesmo M vira casos pela população do país: M × população_i / n_i, porque cada vértice representa essa fração da população. **[pendente: valor de M]**
+- **Dia 0 por país (decidido em 14/11/2026):** primeiro dia em que o número de vértices com casos acumulados do país atinge M (`M = 1` por padrão em `DEFAULT_DAY_ZERO_VERTEX_THRESHOLD`, configurável). Na simulação, conta-se em vértices. No fluxo real, o mesmo M vira casos pela população do país: M × população_i / n_i, porque cada vértice representa essa fração da população.
 - **Escala:** comparação por frações (acumulados divididos pela população do país ou do cenário).
 
 ### 7.3 Métricas, em ordem de prioridade

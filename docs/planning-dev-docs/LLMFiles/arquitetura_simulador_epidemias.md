@@ -152,13 +152,16 @@ class SimulationSession:
 ```python
 @dataclass(frozen=True)
 class SimulationConfig:
-    seed: int
-    scenario: str                 # "global" ou "regional_ebola" (B4 da modelagem)
-    r0: float            # R0 informado pelo usuário; β é calibrado a partir dele (B2)
-    exit_rate_gamma: float      # taxa total de saída de I (γ), informada pelo usuário (RF01)
-    mortalidade: float            # fração das saídas de I que vão para D (item 5 do Bloco 2)
-    incubacao_dias: float         # sigma = 1 / incubacao (H1N1 1,4 dias; SARS 4,0 dias)
-    nivel_intervencao: Literal["baixo", "medio", "alto"]   # C5 da modelagem
+    seed: int = 42
+    scenario: str = "global"              # "global" ou "regional_ebola" (B4 da modelagem)
+    r0: float = 2.5                       # R0 informado pelo usuário; β é calibrado a partir dele (B2)
+    exit_rate_gamma: float = 0.1          # taxa total de saída de I (γ), informada pelo usuário (RF01)
+    mortality: float = 0.02               # fração das saídas de I que vão para D (alias pt: mortalidade)
+    incubation_days: float = 4.0          # sigma = 1 / incubation_days (alias pt: incubacao_dias)
+    intervention_level: str = "baixo"     # "nenhum", "baixo", "medio", "alto" (alias pt: nivel_intervencao)
+    patient_zero: tuple[int, ...] | None = None
+    max_days: int = 365
+    day_zero_threshold_m: int = 1         # limiar padrão M = 1 vértice para o Dia 0 por país (A18)
 ```
 
 Imutável por construção: qualquer alteração exige uma nova configuração e um novo início (RN01).
@@ -369,7 +372,7 @@ Observações sobre a estrutura:
 8. **Tratamento de erros (RNF08).** Proposta: exceções próprias em `core/errors.py` (ex.: `ParametroForaDaFaixa`, `DatasetInvalido`), capturadas pela `ui` e exibidas em caixa de diálogo.
 
 9. **Parâmetros da configuração (γ).** Decidido em 14/11/2026: o usuário informa γ, a taxa total de saída de I; a mortalidade divide a saída entre D e R. Campo `exit_rate_gamma` em `SimulationConfig` (seção 4.4).
-10. **Dia 0 por país.** Decidido em 14/11/2026: primeiro dia em que o número de vértices infectados de um país atinge M. O valor de M está pendente (modelagem 7.2).
+10. **Dia 0 por país.** Decidido em 14/11/2026: primeiro dia em que o número de vértices com casos acumulados de um país atinge M (`DEFAULT_DAY_ZERO_VERTEX_THRESHOLD = 1` como padrão configurável em `SimulationConfig.day_zero_threshold_m`).
 
 ---
 
@@ -379,7 +382,7 @@ Observações sobre a estrutura:
 - **[pendente]** Conferir o `countries.geojson` gerado pelo script de dados contra o formato usado por `datasets/` (D20 dos dados). O arquivo bruto do Natural Earth já foi recebido e será convertido para GeoJSON antes da execução do script.
 - **Resolvido (04/11/2026):** o professor liberou NumPy no núcleo (ponto 9.2, item 5) e uso de shapely no script de dados.
 - **Resolvido (14/11/2026):** o campo γ é a taxa total de saída de I (ponto 9.2, item 9).
-- **[pendente]** Valor de M, número mínimo de vértices infectados para o dia 0 de um país (ponto 9.2, item 10).
+- **Resolvido (14/11/2026 — M3):** valor padrão `M = 1` vértice para o Dia 0 de um país (`DEFAULT_DAY_ZERO_VERTEX_THRESHOLD = 1`, configurável via `threshold_m`; ponto 9.2, item 10).
 - **[pendente]** Divisão de tarefas entre os integrantes, definida pelo grupo, fora dos documentos.
 - **[pendente]** Diagramas UML (outro membro), com os nomes desta versão.
 - Depois de validado: criar o esqueleto de pastas e os `__init__.py` no repositório, e substituir a prova de conceito de `main.py` pelo esqueleto da arquitetura, mantendo a verificação de FPS do setup.

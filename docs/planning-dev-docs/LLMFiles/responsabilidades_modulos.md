@@ -195,7 +195,8 @@ Com o escopo do M1 da v0.1 restabelecido, o M1 concentra a construção do grafo
 | Nomes no código e nos contratos | Inglês, com os nomes da seção 3 (14/11) | Todos |
 | Campo de γ em RF01 | Taxa total de saída de I, informada pelo usuário; a mortalidade divide a saída (14/11) | M3, M5 |
 | Custo e probabilidade | Recebem β como argumento; chamados pelo M3 depois da calibração (14/11) | M1 e M3 |
-| Dia 0 | Primeiro dia em que o número de vértices infectados de um país atinge M (14/11) | M3 e M4 |
+| Dia 0 | Primeiro dia em que o número de vértices com casos de um país atinge M (`M = 1` padrão configurável, 14/11) | M3 e M4 |
+| Sensibilidade dos níveis de intervenção (C5) | Validada por teste no M3 (`nenhum > baixo > medio > alto` em casos acumulados) | M3 e M5 |
 | NumPy no núcleo | Liberado pelo professor (04/11) | M1 e M3 |
 | shapely | Liberado para o script, não para o aplicativo (04/11) | M4 |
 | Formato do Natural Earth | GeoJSON, convertido uma vez | M4 |
@@ -205,15 +206,13 @@ Com o escopo do M1 da v0.1 restabelecido, o M1 concentra a construção do grafo
 
 | Pendência | Afeta | Quem resolve |
 |---|---|---|
-| Valor de M, número mínimo de vértices infectados para o dia 0 | M3, M4 | Grupo |
 | Validação de 40 px e 36 px no protótipo, na máquina mais fraca | M5 | E |
 | Benchmark de `N_total` (provisório 8.000), `k_max`, `escala` e `d̄` | M1, M2, M3 | C, com A e B |
 | Recontagem de rotas e de países sem rota sobre as 229 entidades | M4 | D |
 | Fonte do Ebola: trocar o Kaggle pela HDX | M4 | D |
 | Licença do código e `DATA_SOURCES.md` | Repositório | D, com o grupo |
-| Níveis de intervenção: validar por sensibilidade | M3, M5 | B, com o grupo |
 | R0 de referência e leitura direta de Lipsitch et al. (2003) | Modelagem e relatório | B, com o grupo |
-| Local do cálculo de R0 efetivo (`app/panel_metrics.py` ou `core/analysis/`) | M2, M5 | C e E |
+| Local do cálculo de R0 efetivo (`core/analysis/epidemic_metrics.py` já implementado no M2 e reexportado para `app/panel_metrics.py` no M5) | M2, M5 | C e E |
 | Atribuição de responsáveis (A a E) | Todos | Grupo |
 | Casos de uso, UML e relatório LaTeX | Documentação | Grupo |
 
