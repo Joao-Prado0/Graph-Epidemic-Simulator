@@ -32,7 +32,7 @@ from epidemia.core.epidemic.parameters import SimulationConfig
 from epidemia.core.errors import EpidemiaError
 
 if TYPE_CHECKING:
-    from epidemia.world.world import World
+    pass
 
 
 class ConfigPanel(QWidget):
@@ -123,7 +123,7 @@ class ConfigPanel(QWidget):
 
         # Cenário
         self._combo_scenario = QComboBox()
-        self._combo_scenario.addItems(["global", "regional"])
+        self._combo_scenario.addItems(["global", "regional_ebola"])
         self._combo_scenario.setCurrentText("global")
         form_interv.addRow("Cenário:", self._combo_scenario)
 
@@ -192,7 +192,8 @@ class ConfigPanel(QWidget):
                     pz = tuple(int(x.strip()) for x in raw_text.split(",") if x.strip())
                 except ValueError as exc:
                     raise EpidemiaError(
-                        f"IDs de paciente zero inválidos: {raw_text}. Use números separados por vírgula."
+                        f"IDs de paciente zero inválidos: {raw_text}. "
+                        "Use números separados por vírgula."
                     ) from exc
 
         return SimulationConfig(

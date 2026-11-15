@@ -7,8 +7,6 @@ import pytest
 from epidemia.app.config_io import (
     config_from_dict,
     config_from_json,
-    config_to_dict,
-    config_to_json,
     load_config,
     save_config,
 )
@@ -81,3 +79,57 @@ def test_config_file_not_found(tmp_path):
     inexistente = tmp_path / "nao_existe.json"
     with pytest.raises(ParameterOutOfRangeError, match="não encontrado"):
         load_config(inexistente)
+
+
+def test_config_salva_e_carregada_produz_mesmo_buffer_hash(tmp_path):
+    """Verifica o critério de aceitação: config salva e carregada produz o mesmo buffer hash."""
+    import hashlib
+
+    from epidemia.app.simulation_session import SimulationSession
+    from tests.fixtures import create_synthetic_world
+
+    orig_cfg = SimulationConfig(
+        seed=777,
+        scenario="global",
+        r0=2.6,
+        exit_rate_gamma=0.18,
+        mortality=0.03,
+        incubation_days=3.5,
+        intervention_level="baixo",
+        max_days=20,
+    )
+
+    # 1. Executa com config original
+    world_a = create_synthetic_world(total_vertices=60, seed=777)
+    session_a = SimulationSession(world_a)
+    session_a.configure(orig_cfg)
+    session_a.start()
+    for _ in range(8):
+        session_a.run_day()
+
+    timeline_a = session_a.timeline()
+    hasher_a = hashlib.sha256()
+    for d in range(timeline_a.days_available):
+        hasher_a.update(timeline_a.vertex_states(d))
+    hash_a = hasher_a.hexdigest()
+
+    # 2. Salva e recarrega
+    cfg_file = tmp_path / "saved_cfg.json"
+    save_config(cfg_file, orig_cfg)
+    loaded_cfg = load_config(cfg_file)
+
+    # 3. Executa com config carregada
+    world_b = create_synthetic_world(total_vertices=60, seed=777)
+    session_b = SimulationSession(world_b)
+    session_b.configure(loaded_cfg)
+    session_b.start()
+    for _ in range(8):
+        session_b.run_day()
+
+    timeline_b = session_b.timeline()
+    hasher_b = hashlib.sha256()
+    for d in range(timeline_b.days_available):
+        hasher_b.update(timeline_b.vertex_states(d))
+    hash_b = hasher_b.hexdigest()
+
+    assert hash_a == hash_b

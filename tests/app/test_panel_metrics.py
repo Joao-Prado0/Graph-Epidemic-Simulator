@@ -16,7 +16,7 @@ from tests.fixtures import create_synthetic_world
 
 
 def test_painel_consistente_com_summarize_epidemic_series():
-    """Verifica que o painel produz resultado idêntico a summarize_epidemic_series sobre a mesma série."""
+    """Verifica que o painel produz resultado idêntico a summarize_epidemic_series."""
     world = create_synthetic_world(total_vertices=80, seed=42)
     session = SimulationSession(world)
     config = SimulationConfig(

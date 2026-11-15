@@ -8,7 +8,7 @@ arraste (pan), botão de ajuste automático e tooltip ao passar o mouse.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import (
@@ -95,27 +95,19 @@ class MapCanvas(QWidget):
 
         for iso3, geom in world.country_geometries.items():
             path = QPainterPath()
-            geom_raw = geom.raw
-            gtype = geom_raw.get("type", "")
-            coords = geom_raw.get("coordinates", [])
-
-            if gtype == "Polygon":
-                for ring in coords:
-                    if not ring:
-                        continue
-                    p0 = ring[0]
+            for poly in geom.polygons:
+                exterior, holes = poly
+                if exterior:
+                    p0 = exterior[0]
                     path.moveTo(float(p0[0]), float(p0[1]))
-                    for pt in ring[1:]:
+                    for pt in exterior[1:]:
                         path.lineTo(float(pt[0]), float(pt[1]))
                     path.closeSubpath()
-            elif gtype == "MultiPolygon":
-                for poly in coords:
-                    for ring in poly:
-                        if not ring:
-                            continue
-                        p0 = ring[0]
+                for hole in holes:
+                    if hole:
+                        p0 = hole[0]
                         path.moveTo(float(p0[0]), float(p0[1]))
-                        for pt in ring[1:]:
+                        for pt in hole[1:]:
                             path.lineTo(float(pt[0]), float(pt[1]))
                         path.closeSubpath()
 
@@ -332,11 +324,7 @@ class MapCanvas(QWidget):
                 c_name = self._world.country_names.get(iso3, iso3)
                 c_pop = self._world.country_populations.get(iso3, 0)
                 n_verts = len(self._world.country_vertices.get(iso3, []))
-                text = (
-                    f"<b>{c_name} ({iso3})</b><br/>"
-                    f"População: {c_pop:,}<br/>"
-                    f"Vértices: {n_verts}"
-                )
+                text = f"<b>{c_name} ({iso3})</b><br/>População: {c_pop:,}<br/>Vértices: {n_verts}"
                 QToolTip.showText(self.mapToGlobal(pos.toPoint()), text, self)
                 return
 

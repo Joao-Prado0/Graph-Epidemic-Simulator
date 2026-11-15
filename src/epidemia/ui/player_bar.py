@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QSlider,
     QWidget,
 )
-from PySide6.QtCore import Qt
 
 if TYPE_CHECKING:
     from epidemia.app.playback import PlaybackController

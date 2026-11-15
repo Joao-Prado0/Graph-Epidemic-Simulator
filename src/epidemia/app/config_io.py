@@ -58,7 +58,9 @@ def config_from_dict(data: Mapping[str, Any]) -> SimulationConfig:
         patient_zero_tuple: tuple[int, ...] | None = None
         if raw_patient_zero is not None:
             if not isinstance(raw_patient_zero, (list, tuple)):
-                raise ParameterOutOfRangeError("patient_zero deve ser uma lista de inteiros ou null.")
+                raise ParameterOutOfRangeError(
+                    "patient_zero deve ser uma lista de inteiros ou null."
+                )
             patient_zero_tuple = tuple(int(x) for x in raw_patient_zero)
 
         return SimulationConfig(
@@ -74,9 +76,7 @@ def config_from_dict(data: Mapping[str, Any]) -> SimulationConfig:
             day_zero_threshold_m=int(raw_threshold_m),
         )
     except (ValueError, TypeError) as exc:
-        raise ParameterOutOfRangeError(
-            f"Erro ao processar valores de configuração: {exc}"
-        ) from exc
+        raise ParameterOutOfRangeError(f"Erro ao processar valores de configuração: {exc}") from exc
 
 
 def config_to_json(config: SimulationConfig, indent: int = 2) -> str:

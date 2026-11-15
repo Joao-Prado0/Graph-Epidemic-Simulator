@@ -11,13 +11,13 @@ from PySide6.QtGui import QColor
 # ---------------------------------------------------------------------------
 # Cores dos compartimentos epidemiológicos (hexadecimal e QColor)
 # ---------------------------------------------------------------------------
-COLOR_HEX_SUSCEPTIBLE = "#4caf50"      # Verde (S)
-COLOR_HEX_EXPOSED = "#ff9800"          # Laranja (E)
-COLOR_HEX_INFECTED = "#f44336"         # Vermelho (I)
-COLOR_HEX_RECOVERED_NAT = "#2196f3"    # Azul (R natural)
-COLOR_HEX_RECOVERED_VAC = "#00bcd4"    # Ciano (R vacinado)
-COLOR_HEX_DECEASED = "#9e9e9e"         # Cinza (D)
-COLOR_HEX_ISOLATED = "#ab47bc"         # Roxo (Isolado)
+COLOR_HEX_SUSCEPTIBLE = "#4caf50"  # Verde (S)
+COLOR_HEX_EXPOSED = "#ff9800"  # Laranja (E)
+COLOR_HEX_INFECTED = "#f44336"  # Vermelho (I)
+COLOR_HEX_RECOVERED_NAT = "#2196f3"  # Azul (R natural)
+COLOR_HEX_RECOVERED_VAC = "#00bcd4"  # Ciano (R vacinado)
+COLOR_HEX_DECEASED = "#9e9e9e"  # Cinza (D)
+COLOR_HEX_ISOLATED = "#ab47bc"  # Roxo (Isolado)
 
 COLOR_SUSCEPTIBLE = QColor(COLOR_HEX_SUSCEPTIBLE)
 COLOR_EXPOSED = QColor(COLOR_HEX_EXPOSED)
