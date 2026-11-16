@@ -41,6 +41,10 @@ except ImportError:
 
 TARGET_UNIVERSE_COUNT = 229
 ANTIMERIDIAN_COUNTRIES = {"RUS", "FJI", "USA", "KIR", "NZL"}
+# Populações ausentes no OWID. Preenchidas só quando o valor está vazio.
+POPULATION_OVERRIDES: dict[str, tuple[float, str]] = {
+    "PCN": (47, "Pitcairn Islands, estimativa de 2021 (Wikipedia, verbete Pitcairn Islands)"),
+}
 
 
 def normalize_name(text: str) -> str:
@@ -168,6 +172,8 @@ def build_geometry_and_centroids(
 
         raw_str = str(raw_code).strip()
         iso3, parent = resolve_iso(raw_str, aliases, drops, {})
+        if iso3 is None and len(raw_str) == 3 and raw_str.isalpha():
+            iso3, parent = raw_str.upper(), None  # código ISO3 direto do Natural Earth
         if iso3 == "DROP" or not iso3:
             continue
 
@@ -268,6 +274,11 @@ def build_countries_master(
     if "CYP" in master["iso_code"].values:
         master.loc[master["iso_code"] == "CYP", "population"] += cyn_pop
 
+    # Preenche populações ausentes no OWID (só onde o valor está vazio)
+    for code, (pop, _source) in POPULATION_OVERRIDES.items():
+        mask = master["iso_code"] == code
+        master.loc[mask & master["population"].isna(), "population"] = pop
+
     # D9: Agregação dos 8 territórios aos países-mãe
     parent_map: dict[str, str] = {}
     for _alias_name, (target_iso, parent_iso) in aliases.items():
@@ -307,6 +318,7 @@ def build_edges(
     iata_exceptions: dict[str, str],
     valid_iso3_set: set[str],
     out_csv_path: Path,
+    owid_names: dict[str, str] | None = None,
 ) -> pd.DataFrame:
     """Gera edges.csv a partir do OpenFlights, excluindo codeshare e voos domésticos (D13, D14)."""
     if pd is None:
@@ -328,7 +340,7 @@ def build_edges(
                 airports[ap_id] = iata_exceptions[iata]
                 continue
 
-            iso3, parent = resolve_iso(country_name, aliases, drops, {})
+            iso3, parent = resolve_iso(country_name, aliases, drops, owid_names or {})
             if iso3 and iso3 != "DROP":
                 airports[ap_id] = parent if parent else iso3
 
@@ -366,8 +378,7 @@ def build_edges(
             route_pairs[(u, v)] += 1
 
     edge_rows = [
-        {"iso3_a": u, "iso3_b": v, "routes": count}
-        for (u, v), count in sorted(route_pairs.items())
+        {"iso3_a": u, "iso3_b": v, "routes": count} for (u, v), count in sorted(route_pairs.items())
     ]
     edges_df = pd.DataFrame(edge_rows)
 
@@ -681,6 +692,7 @@ def main() -> int:
         iata_exceptions,
         valid_iso3,
         out_edges_csv,
+        owid_names=owid_names,
     )
     print(f"-> Conexões aéreas geradas: {len(edges_df)} pares internacionais.")
 
