@@ -25,10 +25,6 @@ from epidemia.core.timeline.protocol import (
     Timeline,
 )
 from epidemia.datasets.series import (
-    PANDEMIC_COVID19,
-    PANDEMIC_EBOLA,
-    PANDEMIC_H1N1,
-    PANDEMIC_SARS,
     SUPPORTED_PANDEMICS,
     DailyRecord,
     PandemicSeries,

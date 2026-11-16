@@ -277,10 +277,16 @@ def compare_simulation_to_real(
     norm_real_deaths = [real_deaths[d0_real + k] / real_pop for k in range(t_common)]
 
     # MSE e RMSE de casos e mortes
-    cases_mse = sum((s - r) ** 2 for s, r in zip(norm_sim_cases, norm_real_cases)) / t_common
+    cases_mse = (
+        sum((s - r) ** 2 for s, r in zip(norm_sim_cases, norm_real_cases, strict=False))
+        / t_common
+    )
     cases_rmse = math.sqrt(cases_mse)
 
-    deaths_mse = sum((s - r) ** 2 for s, r in zip(norm_sim_deaths, norm_real_deaths)) / t_common
+    deaths_mse = (
+        sum((s - r) ** 2 for s, r in zip(norm_sim_deaths, norm_real_deaths, strict=False))
+        / t_common
+    )
     deaths_rmse = math.sqrt(deaths_mse)
 
     # Recuperados (opcional, quando disponível na série real)
@@ -295,7 +301,11 @@ def compare_simulation_to_real(
             (real_rec[d0_real + k] or 0) / real_pop for k in range(t_common)
         ]
         recovered_mse = (
-            sum((s - r) ** 2 for s, r in zip(norm_sim_rec, norm_real_rec)) / t_common
+            sum(
+                (s - r) ** 2
+                for s, r in zip(norm_sim_rec, norm_real_rec, strict=False)
+            )
+            / t_common
         )
         recovered_rmse = math.sqrt(recovered_mse)
 

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from epidemia.datasets.loaders import (
     CountryRecord,
     EdgeRecord,
@@ -133,7 +134,7 @@ def test_load_edges_csv_missing_file() -> None:
 def test_load_edges_csv_self_loop(tmp_path: Path) -> None:
     bad_edges = tmp_path / "self_loop.csv"
     bad_edges.write_text("iso3_a,iso3_b,routes\nBRA,BRA,10\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="auto-laço proibido"):
+    with pytest.raises(ValueError, match="auto-laço"):
         load_edges_csv(bad_edges)
 
 

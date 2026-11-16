@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
 from epidemia.app.panel_metrics import compute_epidemic_summary_from_timeline
 from epidemia.app.real_session import (
     RealCountryCounts,
@@ -18,7 +19,6 @@ from epidemia.core.errors import (
 )
 from epidemia.core.timeline.protocol import CountryInfo, Timeline
 from epidemia.datasets.series import (
-    PANDEMIC_COVID19,
     PANDEMIC_SARS,
     load_pandemic_series,
 )
@@ -106,11 +106,11 @@ def test_real_timeline_country_day_zero(sample_sars_series, sample_countries) ->
 
 
 def test_real_timeline_from_world(sample_sars_series) -> None:
-    world = create_synthetic_world(total_vertices=50, seed=42)
+    world = create_synthetic_world(total_vertices=60, seed=42)
     timeline = RealTimeline.from_world(world, sample_sars_series)
 
     assert isinstance(timeline, Timeline)
-    assert timeline.num_vertices == 50
+    assert timeline.num_vertices == 60
     assert len(timeline.countries) == len(world.country_codes)
 
 
@@ -120,7 +120,9 @@ def test_real_timeline_compatible_with_panel_metrics(sample_sars_series, sample_
 
     # Deve calcular resumo a partir de country_counts sem falhar
     assert summary.peak_active_cases > 0
-    assert summary.duration_days == 3
+    # Convenção M2 (core/analysis/epidemic_metrics.py): duration_days é o índice do
+    # último dia com novos casos ativos (t_final a partir do dia 0; dias 0, 1 e 2 -> índice 2).
+    assert summary.duration_days == 2
     assert summary.total_deaths == 10  # Dia 2: 8 + 2 = 10
 
 

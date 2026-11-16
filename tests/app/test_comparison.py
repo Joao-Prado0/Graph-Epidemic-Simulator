@@ -6,6 +6,7 @@ import math
 from pathlib import Path
 
 import pytest
+
 from epidemia.app.comparison import (
     ComparisonResult,
     compare_simulation_to_real,

@@ -243,7 +243,7 @@ def load_countries_geojson(path: Path | str) -> dict[str, dict[str, Any]]:
 
     features = data.get("features", [])
     if not isinstance(features, list):
-        raise ValueError(f"Formato GeoJSON inválido: 'features' deve ser uma lista.")
+        raise ValueError("Formato GeoJSON inválido: 'features' deve ser uma lista.")
 
     result: dict[str, dict[str, Any]] = {}
     for feat in features:

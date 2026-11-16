@@ -270,7 +270,7 @@ def build_countries_master(
 
     # D9: Agregação dos 8 territórios aos países-mãe
     parent_map: dict[str, str] = {}
-    for alias_name, (target_iso, parent_iso) in aliases.items():
+    for _alias_name, (target_iso, parent_iso) in aliases.items():
         if parent_iso:
             parent_map[target_iso] = parent_iso
 

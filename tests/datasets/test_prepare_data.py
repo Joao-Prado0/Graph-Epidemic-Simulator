@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
 from data.prepare_data import (
     load_aliases,
     normalize_name,

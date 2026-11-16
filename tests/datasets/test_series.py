@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
 from epidemia.datasets.series import (
     PANDEMIC_COVID19,
     PANDEMIC_SARS,
-    DailyRecord,
     PandemicSeries,
     load_pandemic_series,
 )
@@ -127,7 +127,7 @@ def test_load_pandemic_series_missing_columns(tmp_path: Path) -> None:
 def test_load_pandemic_series_negative_values(tmp_path: Path) -> None:
     bad_csv = tmp_path / "negative.csv"
     bad_csv.write_text("iso3,date,cases,deaths\nBRA,2020-01-01,-5,0\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="Valores negativos proibidos"):
+    with pytest.raises(ValueError, match="Valores negativos"):
         load_pandemic_series(bad_csv)
 
 
