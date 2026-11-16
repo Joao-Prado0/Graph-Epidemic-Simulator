@@ -186,3 +186,60 @@ def test_error_dialog_sem_fechar_janela(qapp, monkeypatch):
 
     assert dialog_chamado is True
     assert win.isVisible() is False or win.close() is not None
+
+
+def test_real_pandemics_tab_missing_file_warning(qapp):
+    """Verifica aviso amigável quando arquivos de dados reais do M4 não existem."""
+    world = create_synthetic_world(total_vertices=60, seed=42)
+    win = MainWindow(world)
+
+    win._list_pandemics.setCurrentRow(0)
+    win._on_load_pandemic_clicked()
+
+    # Com data/processed sem arquivos reais, deve exibir aviso de pendência
+    assert "não encontrado em data/processed" in win._lbl_real_status.text()
+    assert win._is_real_flow is False
+    win.close()
+
+
+def test_real_pandemics_load_series_and_playback(qapp, tmp_path):
+    """Verifica que RealTimeline controla player, mapa e gráficos ao carregar pandemia."""
+    from epidemia.app.real_session import RealTimeline
+    from epidemia.datasets.series import PANDEMIC_SARS, load_pandemic_series
+
+    csv_file = tmp_path / "sars.csv"
+    csv_file.write_text(
+        "iso3,date,cases,deaths,recovered\n"
+        "BRA,2003-03-17,10,1,2\n"
+        "BRA,2003-03-18,50,4,10\n"
+        "BRA,2003-03-19,100,8,25\n",
+        encoding="utf-8",
+    )
+    series = load_pandemic_series(csv_file, PANDEMIC_SARS)
+
+    world = create_synthetic_world(total_vertices=60, seed=42)
+    win = MainWindow(world)
+
+    # Carrega pandemia com a série sintética
+    win._load_pandemic_by_id("sars", "SARS-CoV-1", series=series)
+
+    assert win._is_real_flow is True
+    assert isinstance(win._playback.timeline, RealTimeline)
+    assert win._playback.days_available == 3
+    assert win._tabs.currentIndex() == 0
+
+    # Verifica que o mapa está no modo real (sem vertex_states)
+    assert win._map_view.is_real_flow is True
+    assert win._map_view._canvas._vertex_bytes is None
+    assert win._map_view._canvas._country_counts is not None
+
+    # Avança no player e confirma sincronização
+    win._player_bar._slider.setValue(1)
+    assert win._playback.current_day == 1
+    assert win._map_view._canvas._vertex_bytes is None
+
+    # Descarrega
+    win._on_unload_pandemic_clicked()
+    assert win._is_real_flow is False
+    assert win._playback.timeline is None
+    win.close()

@@ -36,7 +36,9 @@ from epidemia.app.panel_metrics import (
     compute_network_analysis,
 )
 from epidemia.app.playback import PlaybackController
+from epidemia.app.real_session import RealSession
 from epidemia.app.simulation_session import SimulationSession
+from epidemia.config import PROCESSED_DATA_DIR
 from epidemia.core.errors import EpidemiaError
 from epidemia.ui.charts_view import ChartsView
 from epidemia.ui.config_panel import ConfigPanel
@@ -92,6 +94,10 @@ class MainWindow(QMainWindow):
             world if world is not None else create_synthetic_world(total_vertices=100)
         )
         self._session: SimulationSession = SimulationSession(self._world)
+        self._real_session: RealSession = RealSession(
+            processed_dir=PROCESSED_DATA_DIR, world=self._world
+        )
+        self._is_real_flow: bool = False
         self._playback: PlaybackController = PlaybackController()
         self._sim_thread: SimulationThread = SimulationThread(self._session, self)
         self._network_worker: NetworkAnalysisWorker | None = None
@@ -261,30 +267,63 @@ class MainWindow(QMainWindow):
         info_layout = QVBoxLayout(info_box)
 
         lbl_desc = QLabel(
-            "Selecione uma pandemia histórica embutida no sistema.\n"
-            "Nota: A leitura das séries processadas e a reprodução do fluxo real "
-            "dependem da integração dos arquivos do módulo M4 (datasets/ e data/processed/).\n"
-            "Nesta etapa do M5, a interface apresenta a seleção e os metadados do cenário."
+            "Selecione uma pandemia histórica embutida no sistema para carregar a série "
+            "temporal real.\nAo carregar, o player, os gráficos epidemiológicos e o mapa "
+            "mundial passam a reproduzir os dados históricos agregados por país (RF09, RF12).\n"
+            "Nota: O mapa desenha a intensidade de casos acumulados por 100 mil hab. (A12) "
+            "sem renderizar vértices individuais."
         )
         lbl_desc.setStyleSheet("color: #b0bec5; font-size: 13px;")
         info_layout.addWidget(lbl_desc)
 
-        self._list_pandemics = QListWidget()
-        pandemias = [
-            ("COVID-19 (SARS-CoV-2)", "2020–2022 · Escala global · 229 países e territórios"),
-            ("Ebola (África Ocidental)", "2014–2016 · Foco regional: Guiné, Libéria, Serra Leoa"),
-            ("H1N1 (Gripe Suína)", "2009 · Disseminação aérea internacional"),
-            ("SARS-CoV-1", "2003 · Primeiro surto internacional do século XXI"),
+        self._pandemics_info = [
+            (
+                "covid19",
+                "COVID-19 (SARS-CoV-2)",
+                "2020–2022 · Escala global · 229 países e territórios",
+            ),
+            (
+                "ebola",
+                "Ebola (África Ocidental)",
+                "2014–2016 · Foco regional: Guiné, Libéria, Serra Leoa",
+            ),
+            (
+                "h1n1",
+                "H1N1 (Gripe Suína)",
+                "2009 · Disseminação aérea internacional",
+            ),
+            (
+                "sars",
+                "SARS-CoV-1",
+                "2003 · Primeiro surto internacional do século XXI",
+            ),
         ]
-        for name, detail in pandemias:
+
+        self._list_pandemics = QListWidget()
+        for _, name, detail in self._pandemics_info:
             item = QListWidgetItem(f"{name}\n  {detail}")
             self._list_pandemics.addItem(item)
 
         self._list_pandemics.setCurrentRow(0)
+        self._list_pandemics.itemDoubleClicked.connect(self._on_load_pandemic_clicked)
         info_layout.addWidget(self._list_pandemics)
 
-        self._lbl_real_status = QLabel("Status do M4: Aguardando entrega dos arquivos processados.")
-        self._lbl_real_status.setStyleSheet("color: #ffb74d; font-weight: bold;")
+        btn_row = QHBoxLayout()
+        self._btn_load_real = QPushButton("▶ Carregar Pandemia e Reproduzir no Player")
+        self._btn_load_real.setStyleSheet(
+            "background-color: #1976d2; color: white; font-weight: bold; padding: 8px 16px;"
+        )
+        self._btn_load_real.clicked.connect(self._on_load_pandemic_clicked)
+        btn_row.addWidget(self._btn_load_real)
+
+        self._btn_unload_real = QPushButton("⏹ Voltar para Simulação do Modelo")
+        self._btn_unload_real.clicked.connect(self._on_unload_pandemic_clicked)
+        btn_row.addWidget(self._btn_unload_real)
+
+        info_layout.addLayout(btn_row)
+
+        self._lbl_real_status = QLabel("Status: Nenhuma pandemia real carregada.")
+        self._lbl_real_status.setStyleSheet("color: #90caf9; font-weight: bold;")
         info_layout.addWidget(self._lbl_real_status)
 
         real_layout.addWidget(info_box)
@@ -305,6 +344,68 @@ class MainWindow(QMainWindow):
         # Player Bar
         self._player_bar.day_changed.connect(self._on_playback_day_changed)
         self._player_bar.reset_requested.connect(self._on_reset_requested)
+
+    def _on_load_pandemic_clicked(self) -> None:
+        row = self._list_pandemics.currentRow()
+        if row < 0 or row >= len(self._pandemics_info):
+            return
+        p_id, p_name, _ = self._pandemics_info[row]
+        self._load_pandemic_by_id(p_id, p_name)
+
+    def _load_pandemic_by_id(
+        self, p_id: str, p_name: str, series: Any = None
+    ) -> None:
+        """Carrega pandemia histórica e conecta player, gráficos e mapa à RealTimeline."""
+        try:
+            if self._sim_thread.isRunning():
+                self._sim_thread.stop()
+                self._sim_thread.wait(1000)
+
+            timeline = self._real_session.load_pandemic(p_id, series=series)
+            self._is_real_flow = True
+
+            # Anexa ao player controller
+            self._playback.attach_timeline(timeline)
+            self._player_bar.update_state()
+
+            # Atualiza gráficos com a nova linha do tempo
+            self._charts_view.update_timeline_data(timeline, current_day=0)
+
+            # Atualiza o mapa no modo fluxo real (A12)
+            self._update_map_for_current_day()
+
+            # Atualiza o painel de resumo epidemiológico
+            self._update_epidemic_summary()
+
+            self._lbl_real_status.setText(
+                f"Pandemia {p_name} carregada com sucesso! "
+                f"({timeline.days_available} dias históricos disponíveis)."
+            )
+            self._lbl_real_status.setStyleSheet("color: #4caf50; font-weight: bold;")
+
+            # Alterna para a aba de reprodução/visualização
+            self._tabs.setCurrentIndex(0)
+
+        except FileNotFoundError:
+            msg = (
+                f"Arquivo '{p_id}.csv' não encontrado em data/processed/.\n"
+                "A validação com dados reais fica pendente por falta dos arquivos do M4."
+            )
+            self._lbl_real_status.setText(msg)
+            self._lbl_real_status.setStyleSheet("color: #ffb74d; font-weight: bold;")
+        except EpidemiaError as exc:
+            self.show_error_dialog("Erro ao Carregar Pandemia", str(exc))
+
+    def _on_unload_pandemic_clicked(self) -> None:
+        """Descarrega a pandemia real e retorna o sistema ao estado de simulação sintética."""
+        self._is_real_flow = False
+        self._playback.detach_timeline()
+        self._charts_view.clear()
+        self._map_view.set_day_data(None, None, is_real_flow=False)
+        self._player_bar.update_state()
+        self._reset_epidemic_summary_labels()
+        self._lbl_real_status.setText("Pandemia real descarregada. Sistema pronto para simulações.")
+        self._lbl_real_status.setStyleSheet("color: #90caf9;")
 
     def _on_calibrate_beta(self, config: SimulationConfig) -> None:
         try:
@@ -327,6 +428,7 @@ class MainWindow(QMainWindow):
                 self._sim_thread.stop()
                 self._sim_thread.wait(1000)
 
+            self._is_real_flow = False
             self._session.reset()
             self._session.configure(config)
 
@@ -368,16 +470,29 @@ class MainWindow(QMainWindow):
         self._charts_view.set_current_day(day)
 
     def _update_map_for_current_day(self) -> None:
-        states = self._playback.current_vertex_states()
-        counts = self._playback.current_country_counts()
-        self._map_view.set_day_data(states, counts, is_real_flow=False)
+        if self._is_real_flow:
+            counts = self._playback.current_country_counts()
+            # No fluxo real, vertex_states é None e o mapa pinta por país usando country_counts
+            self._map_view.set_day_data(None, counts, is_real_flow=True)
+        else:
+            states = self._playback.current_vertex_states()
+            counts = self._playback.current_country_counts()
+            self._map_view.set_day_data(states, counts, is_real_flow=False)
 
     def _update_epidemic_summary(self) -> None:
-        if not self._session.is_started:
+        timeline = None
+        cfg = None
+        if self._is_real_flow and self._real_session.is_loaded:
+            timeline = self._real_session.timeline()
+        elif self._session.is_started:
+            timeline = self._session.timeline()
+            cfg = self._session.config
+
+        if timeline is None or timeline.days_available <= 0:
+            self._reset_epidemic_summary_labels()
             return
 
-        timeline = self._session.timeline()
-        summary = compute_epidemic_summary_from_timeline(timeline, self._session.config)
+        summary = compute_epidemic_summary_from_timeline(timeline, cfg)
 
         self._lbl_res_peak_active.setText(f"Pico de ativos: {summary.peak_active_cases:,}")
         self._lbl_res_peak_active_day.setText(f"Dia do pico: {summary.peak_active_day}")
@@ -390,6 +505,14 @@ class MainWindow(QMainWindow):
         else:
             self._lbl_res_eff_r0.setText("R0 efetivo: Não calculável na fase atual")
 
+    def _reset_epidemic_summary_labels(self) -> None:
+        self._lbl_res_peak_active.setText("Pico de ativos: --")
+        self._lbl_res_peak_active_day.setText("Dia do pico: --")
+        self._lbl_res_duration.setText("Duração do surto: --")
+        self._lbl_res_deaths.setText("Óbitos totais: --")
+        self._lbl_res_mortality.setText("Letalidade: --")
+        self._lbl_res_eff_r0.setText("R0 efetivo estimado: --")
+
     def _on_reset_requested(self) -> None:
         if self._sim_thread.isRunning():
             self._sim_thread.stop()
@@ -401,13 +524,7 @@ class MainWindow(QMainWindow):
         self._charts_view.clear()
         self._map_view.set_day_data(None, None)
         self._player_bar.update_state()
-
-        self._lbl_res_peak_active.setText("Pico de ativos: --")
-        self._lbl_res_peak_active_day.setText("Dia do pico: --")
-        self._lbl_res_duration.setText("Duração do surto: --")
-        self._lbl_res_deaths.setText("Óbitos totais: --")
-        self._lbl_res_mortality.setText("Letalidade: --")
-        self._lbl_res_eff_r0.setText("R0 efetivo estimado: --")
+        self._reset_epidemic_summary_labels()
 
     def _on_calc_network_clicked(self) -> None:
         sample_size = self._spin_sample_size.value()

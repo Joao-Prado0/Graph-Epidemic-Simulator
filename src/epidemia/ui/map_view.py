@@ -382,6 +382,11 @@ class MapView(QWidget):
     ) -> None:
         self._canvas.set_day_data(vertex_bytes, country_counts, is_real_flow)
 
+    @property
+    def is_real_flow(self) -> bool:
+        """Indica se o mapa está renderizando o fluxo de pandemias reais."""
+        return self._canvas._is_real_flow
+
     def _on_fit_clicked(self) -> None:
         self._canvas.fit_map()
 
