@@ -6,6 +6,9 @@ from collections.abc import Iterator
 
 import pytest
 
+import epidemia.config as cfg
+import epidemia.ui.main_window as mw
+
 
 class SimpleTestGraph:
     """Grafo não direcionado leve para testes unitários, com suporte a máscara de arestas."""
@@ -105,3 +108,15 @@ def bridge_triangles_graph() -> SimpleTestGraph:
     g.add_edge(4, 5)
     g.add_edge(5, 3)
     return g
+
+
+@pytest.fixture(autouse=True)
+def _isolate_processed_data(tmp_path, monkeypatch):
+    """Aponta os dados processados para uma pasta vazia em todos os testes."""
+    empty = tmp_path / "empty_processed"
+    empty.mkdir()
+    monkeypatch.setattr(cfg, "PROCESSED_DATA_DIR", empty)
+    monkeypatch.setattr(cfg, "COUNTRIES_CSV", empty / "countries.csv")
+    monkeypatch.setattr(cfg, "EDGES_CSV", empty / "edges.csv")
+    monkeypatch.setattr(cfg, "COUNTRIES_GEOJSON", empty / "countries.geojson")
+    monkeypatch.setattr(mw, "PROCESSED_DATA_DIR", empty)
