@@ -1,1 +1,161 @@
 alias,iso3,parent_iso3,note
+Diamond Princess,DROP,,Nao-pais (navio de cruzeiro descartado D8)
+MS Zaandam,DROP,,Nao-pais (navio de cruzeiro descartado D8)
+Summer Olympics 2020,DROP,,Nao-pais (evento esportivo descartado D8)
+Winter Olympics 2022,DROP,,Nao-pais (evento esportivo descartado D8)
+Antarctica,DROP,,Nao-pais fora do escopo (D8)
+ATA,DROP,,Codigo Natural Earth Antartida (D8)
+ATF,DROP,,Codigo Natural Earth Terras Austrais Francesas (D8)
+HMD,DROP,,Codigo Natural Earth Ilhas Heard e McDonald (D8)
+NFK,DROP,,Codigo Natural Earth Ilha Norfolk (D8)
+SGS,DROP,,Codigo Natural Earth Georgia do Sul e Sandwich (D8)
+IOT,DROP,,Codigo Natural Earth Territorio Britanico Oceano Indico (D8)
+SOL,DROP,,Codigo Natural Earth Somalilandia (D8)
+KAS,DROP,,Codigo Natural Earth Geleira de Siachen (D8)
+Cocos (Keeling) Islands,DROP,,Territorio sem entidade no modelo (D8)
+Christmas Island,DROP,,Territorio sem entidade no modelo (D8)
+Johnston Atoll,DROP,,Atol desabitado sem entidade (D8)
+Midway Islands,DROP,,Atol desabitado sem entidade (D8)
+Wake Island,DROP,,Atol desabitado sem entidade (D8)
+Norfolk Island,DROP,,Territorio sem entidade (D8)
+Svalbard,DROP,,Territorio sem entidade (D8)
+Gibraltar,GIB,GBR,Territorio agregado ao Reino Unido (D9)
+GIB,GIB,GBR,Codigo Gibraltar agregado ao Reino Unido (D9)
+Bonaire Sint Eustatius and Saba,BES,NLD,Territorio agregado aos Paises Baixos (D9)
+Bonaire Saint Eustatius and Saba,BES,NLD,Variante ortografica agregada aos Paises Baixos (D9)
+BES,BES,NLD,Codigo BES agregado aos Paises Baixos (D9)
+Tokelau,TKL,NZL,Territorio agregado a Nova Zelandia (D9)
+TKL,TKL,NZL,Codigo Tokelau agregado a Nova Zelandia (D9)
+Guadeloupe,GLP,FRA,Territorio ultramarino agregado a Franca (D9)
+GLP,GLP,FRA,Codigo Guadalupe agregado a Franca (D9)
+Guadeloupe FOC,GLP,FRA,Grafia no H1N1 agregada a Franca (D9)
+France Guadeloupe FOC,GLP,FRA,Grafia no H1N1 agregada a Franca (D9)
+French Guiana,GUF,FRA,Territorio ultramarino agregado a Franca (D9)
+GUF,GUF,FRA,Codigo Guiana Francesa agregado a Franca (D9)
+French Guiana FOC,GUF,FRA,Grafia no H1N1 agregada a Franca (D9)
+France French Guiana FOC,GUF,FRA,Grafia no H1N1 agregada a Franca (D9)
+Martinique,MTQ,FRA,Territorio ultramarino agregado a Franca (D9)
+MTQ,MTQ,FRA,Codigo Martinica agregado a Franca (D9)
+Martinique FOC,MTQ,FRA,Grafia no H1N1 agregada a Franca (D9)
+France Martinique FOC,MTQ,FRA,Grafia no H1N1 agregada a Franca (D9)
+Mayotte,MYT,FRA,Territorio ultramarino agregado a Franca (D9)
+MYT,MYT,FRA,Codigo Mayotte agregado a Franca (D9)
+Mayotte FOC,MYT,FRA,Grafia no H1N1 agregada a Franca (D9)
+France Mayotte FOC,MYT,FRA,Grafia no H1N1 agregada a Franca (D9)
+Reunion,REU,FRA,Territorio ultramarino agregado a Franca (D9)
+REU,REU,FRA,Codigo Reuniao agregado a Franca (D9)
+Reunion FOC,REU,FRA,Grafia no H1N1 agregada a Franca (D9)
+France Reunion FOC,REU,FRA,Grafia no H1N1 agregada a Franca (D9)
+Aland Islands,FIN,,Ilhas Aland agregadas a Finlandia (D9)
+Aland,FIN,,Ilhas Aland agregadas a Finlandia (D9)
+ALA,FIN,,Codigo Natural Earth Aland agregado a Finlandia (D9)
+Northern Cyprus,CYP,,Norte do Chipre agregado ao Chipre (D24)
+OWID_CYN,CYP,,Codigo OWID Norte do Chipre agregado ao Chipre (D24)
+CYN,CYP,,Codigo Natural Earth Norte do Chipre agregado ao Chipre (D24)
+Kosovo,KOS,,Kosovo entra no modelo como entidade propria (D19)
+OWID_KOS,KOS,,Codigo OWID Kosovo normalizado para KOS (D19)
+KOS,KOS,,Codigo Natural Earth Kosovo normalizado para KOS (D19)
+iata:PRN,KOS,,Aeroporto de Pristina atribuido a Kosovo (OpenFlights)
+iata:BON,BES,NLD,Aeroporto Flamingo Bonaire atribuido a BES/NLD
+iata:EUX,BES,NLD,Aeroporto F.D. Roosevelt Sint Eustatius a BES/NLD
+iata:SAB,BES,NLD,Aeroporto Juancho E. Yrausquin Saba a BES/NLD
+iata:CUR,CUW,,Aeroporto Hato Curacao atribuido a CUW
+iata:SXM,SXM,,Aeroporto Princesa Juliana atribuido a SXM
+Burma,MMR,,Nome antigo de Mianmar
+Congo (Kinshasa),COD,,Republica Democratica do Congo
+Democratic Republic of Congo,COD,,Republica Democratica do Congo
+Congo (Brazzaville),COG,,Republica do Congo
+Republic of the Congo,COG,,Republica do Congo
+Congo,COG,,Republica do Congo
+Czech Republic,CZE,,Republica Tcheca
+Czechia,CZE,,Republica Tcheca
+East Timor,TLS,,Timor-Leste
+Timor,TLS,,Timor-Leste
+Timor-Leste,TLS,,Timor-Leste
+Swaziland,SWZ,,Eswatini
+Eswatini,SWZ,,Eswatini
+Macedonia,MKD,,Macedonia do Norte
+North Macedonia,MKD,,Macedonia do Norte
+Bosnia and Hezegovina,BIH,,Grafia com erro no H1N1
+Bosnia and Herzegovina,BIH,,Bosnia e Herzegovina
+Cap Verde,CPV,,Grafia em ingles arcaico
+Cape Verde,CPV,,Cabo Verde
+Cabo Verde,CPV,,Cabo Verde
+Brunei Darussalam,BRN,,Brunei
+Brunei,BRN,,Brunei
+UK,GBR,,Reino Unido
+United Kingdom,GBR,,Reino Unido
+US,USA,,Estados Unidos
+USA,USA,,Estados Unidos
+United States,USA,,Estados Unidos
+Korea South,KOR,,Coreia do Sul
+South Korea,KOR,,Coreia do Sul
+Republic of Korea,KOR,,Coreia do Sul
+Korea North,PRK,,Coreia do Norte
+North Korea,PRK,,Coreia do Norte
+Taiwan*,TWN,,Taiwan no JHU
+Taiwan China,TWN,,Taiwan na serie do SARS
+Taiwan,TWN,,Taiwan
+Mainland China,CHN,,China continental
+China,CHN,,China
+Hong Kong SAR China,HKG,,Hong Kong
+Hong Kong,HKG,,Hong Kong
+Macao SAR China,MAC,,Macau
+Macao,MAC,,Macau
+Macau,MAC,,Macau
+Viet Nam,VNM,,Vietna
+Vietnam,VNM,,Vietna
+Russian Federation,RUS,,Russia
+Russia,RUS,,Russia
+Iran (Islamic Republic of),IRN,,Ira
+Iran,IRN,,Ira
+Syrian Arab Republic,SYR,,Siria
+Syria,SYR,,Siria
+Venezuela (Bolivarian Republic of),VEN,,Venezuela
+Venezuela,VEN,,Venezuela
+Bolivia (Plurinational State of),BOL,,Bolivia
+Bolivia,BOL,,Bolivia
+Tanzania United Republic of,TZA,,Tanzania
+Tanzania,TZA,,Tanzania
+Cote d'Ivoire,CIV,,Costa do Marfim
+Ivory Coast,CIV,,Costa do Marfim
+Lao People's Democratic Republic,LAO,,Laos
+Laos,LAO,,Laos
+Moldova Republic of,MDA,,Moldavia
+Moldova,MDA,,Moldavia
+Micronesia (Federated States of),FSM,,Micronesia
+Micronesia,FSM,,Micronesia
+Palestine State of,PSE,,Palestina
+Palestine,PSE,,Palestina
+West Bank and Gaza,PSE,,Palestina no JHU
+Saint Vincent and the Grenadines,VCT,,Sao Vicente e Granadinas
+St. Vincent and the Grenadines,VCT,,Sao Vicente e Granadinas
+Saint Kitts and Nevis,KNA,,Sao Cristovao e Nevis
+St. Kitts and Nevis,KNA,,Sao Cristovao e Nevis
+Saint Lucia,LCA,,Santa Lucia
+St. Lucia,LCA,,Santa Lucia
+Curacao,CUW,,Curacao
+Curaçao,CUW,,Curacao
+Sint Maarten (Dutch part),SXM,,Sint Maarten holandesa
+Saint Martin (French part),MAF,,Saint Martin francesa
+Saint Pierre and Miquelon,SPM,,Sao Pedro e Miquelon
+Saint Helena,SHN,,Santa Helena
+Saint Barthelemy,BLM,,Sao Bartolomeu
+Bermuda UKOT,BMU,,Bermudas no H1N1
+Bermuda,BMU,,Bermudas
+Cayman Islands UKOT,CYM,,Ilhas Cayman no H1N1
+Cayman Islands,CYM,,Ilhas Cayman
+British Virgin Islands UKOT,VGB,,Ilhas Virgens Britanicas no H1N1
+British Virgin Islands,VGB,,Ilhas Virgens Britanicas
+Turks and Caicos Islands UKOT,TCA,,Turcas e Caicos no H1N1
+Turks and Caicos Islands,TCA,,Turcas e Caicos
+Anguilla UKOT,AIA,,Anguilla no H1N1
+Anguilla,AIA,,Anguilla
+Montserrat UKOT,MSR,,Montserrat no H1N1
+Montserrat,MSR,,Montserrat
+French Polynesia FOC,PYF,,Polinesia Francesa no H1N1
+French Polynesia,PYF,,Polinesia Francesa
+New Caledonia FOC,NCL,,Nova Caledonia no H1N1
+New Caledonia,NCL,,Nova Caledonia
+Wallis and Futuna,WLF,,Wallis e Futuna
+Aruba,ABW,,Aruba
