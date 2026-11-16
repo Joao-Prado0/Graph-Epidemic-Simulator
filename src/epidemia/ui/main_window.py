@@ -38,14 +38,16 @@ from epidemia.app.panel_metrics import (
 from epidemia.app.playback import PlaybackController
 from epidemia.app.real_session import RealSession
 from epidemia.app.simulation_session import SimulationSession
-from epidemia.config import PROCESSED_DATA_DIR
+from epidemia.config import PROCESSED_DATA_DIR, has_processed_data
 from epidemia.core.errors import EpidemiaError
+from epidemia.datasets.loaders import load_world_inputs
 from epidemia.ui.charts_view import ChartsView
 from epidemia.ui.config_panel import ConfigPanel
 from epidemia.ui.map_view import MapView
 from epidemia.ui.player_bar import PlayerBar
 from epidemia.ui.simulation_thread import SimulationThread
 from epidemia.ui.styles import DARK_THEME_QSS
+from epidemia.world.builder import build_world
 from tests.fixtures import create_synthetic_world
 
 if TYPE_CHECKING:
@@ -89,10 +91,26 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Simulador de Epidemias em Redes — Antigravity")
         self.resize(1340, 840)
 
-        # Se nenhum mundo fornecido, inicia com o fixture sintético (M1)
-        self._world: World = (
-            world if world is not None else create_synthetic_world(total_vertices=100)
-        )
+        # Carrega dados e geometrias reais se disponíveis;
+        # caso contrário, usa fixture sintético (M4 pendente)
+        self._is_synthetic_world: bool = False
+        if world is not None:
+            self._world: World = world
+        elif has_processed_data():
+            try:
+                inputs = load_world_inputs(PROCESSED_DATA_DIR)
+                self._world = build_world(
+                    countries=inputs.countries,
+                    routes=inputs.routes,
+                    total_vertices=8000,
+                )
+            except Exception:
+                self._world = create_synthetic_world(total_vertices=100)
+                self._is_synthetic_world = True
+        else:
+            self._world = create_synthetic_world(total_vertices=100)
+            self._is_synthetic_world = True
+
         self._session: SimulationSession = SimulationSession(self._world)
         self._real_session: RealSession = RealSession(
             processed_dir=PROCESSED_DATA_DIR, world=self._world
@@ -104,6 +122,20 @@ class MainWindow(QMainWindow):
 
         self._init_ui()
         self._connect_signals()
+
+        # Atualiza aviso de ambiente e geometria na barra de status
+        status = self.statusBar()
+        if self._is_synthetic_world:
+            status.showMessage(
+                "Aviso: countries.geojson não encontrado em data/processed. "
+                "Aplicação operando com mapa sintético de demonstração (fixture)."
+            )
+            status.setStyleSheet("color: #ffb74d; background-color: #1e1e1e; font-size: 12px;")
+        else:
+            status.showMessage(
+                "Geometrias reais carregadas a partir de data/processed/countries.geojson."
+            )
+            status.setStyleSheet("color: #81c784; background-color: #1e1e1e; font-size: 12px;")
 
         # Aplica folha de estilo do tema escuro
         self.setStyleSheet(DARK_THEME_QSS)

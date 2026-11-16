@@ -281,3 +281,19 @@ def test_map_view_real_flow_intensity_scale_and_no_vertex_states(qapp):
     assert map_view._canvas._vertex_bytes is None
     assert map_view.is_real_flow is True
     map_view.repaint()
+
+
+def test_main_window_geometria_real_ou_fallback_sintetico(qapp, monkeypatch):
+    """Verifica aviso claro quando countries.geojson não existe e fallback sintético."""
+    # Sem arquivos reais em data/processed/
+    win = MainWindow(world=None)
+    assert win._is_synthetic_world is True
+    assert "countries.geojson não encontrado" in win.statusBar().currentMessage()
+    win.close()
+
+    # Quando um world é explicitamente passado (ex.: com geometria real)
+    world = create_synthetic_world(total_vertices=60, seed=42)
+    win_custom = MainWindow(world=world)
+    assert win_custom._is_synthetic_world is False
+    assert "Geometrias reais carregadas" in win_custom.statusBar().currentMessage()
+    win_custom.close()
