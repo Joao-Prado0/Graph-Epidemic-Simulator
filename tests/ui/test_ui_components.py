@@ -34,12 +34,13 @@ def qapp():
 
 
 def test_main_window_duas_abas_e_inicializacao(qapp):
-    """Verifica que MainWindow inicializa com as duas abas requeridas."""
+    """Verifica que MainWindow inicializa com as abas requeridas pela top navigation bar."""
     world = create_synthetic_world(total_vertices=60, seed=42)
     win = MainWindow(world)
-    assert win._tabs.count() == 2
-    assert "Simulação" in win._tabs.tabText(0)
-    assert "Pandemias reais" in win._tabs.tabText(1)
+    assert win._tabs.count() == 3
+    assert "Início" in win._tabs.tabText(0)
+    assert "Simulação" in win._tabs.tabText(1)
+    assert "Pandemias reais" in win._tabs.tabText(2)
 
     # Verifica widgets centrais da aba simulação
     assert win._config_panel is not None
@@ -226,7 +227,7 @@ def test_real_pandemics_load_series_and_playback(qapp, tmp_path):
     assert win._is_real_flow is True
     assert isinstance(win._playback.timeline, RealTimeline)
     assert win._playback.days_available == 3
-    assert win._tabs.currentIndex() == 0
+    assert win._tabs.currentIndex() == 2
 
     # Verifica que o mapa está no modo real (sem vertex_states)
     assert win._map_view.is_real_flow is True

@@ -115,6 +115,11 @@ class StartScreen(QWidget):
     open_real_pandemics = Signal()
     load_config = Signal()
 
+    # Aliases semânticos
+    simulation_requested = open_simulation
+    real_pandemics_requested = open_real_pandemics
+    load_config_requested = load_config
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._init_ui()
