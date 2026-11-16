@@ -243,3 +243,41 @@ def test_real_pandemics_load_series_and_playback(qapp, tmp_path):
     assert win._is_real_flow is False
     assert win._playback.timeline is None
     win.close()
+
+
+def test_map_view_real_flow_intensity_scale_and_no_vertex_states(qapp):
+    """Verifica a renderização por país por intensidade de casos por 100k hab. (A12)."""
+    from epidemia.core.timeline.protocol import CountryCounts
+    from epidemia.ui.styles import (
+        REAL_FLOW_MIN_CASES_PER_100K,
+        color_for_real_cases_per_100k,
+    )
+
+    # 1. Validação dos limiares da escala sequencial
+    assert REAL_FLOW_MIN_CASES_PER_100K == 10.0
+    c_sub = color_for_real_cases_per_100k(5.0)  # Abaixo de 10/100k
+    assert c_sub.name() == "#2d3748"
+
+    c_min = color_for_real_cases_per_100k(15.0)  # Acima de 10/100k
+    assert c_min.name() == "#fff5f0"
+
+    c_high = color_for_real_cases_per_100k(6000.0)  # Alto
+    assert c_high.name() == "#cb181d"
+
+    # 2. Renderização no MapView com country_counts
+    world = create_synthetic_world(total_vertices=60, seed=42)
+    map_view = MapView()
+    map_view.set_world(world)
+    map_view.resize(600, 400)
+
+    # Brasil: pop = 215_000_000. Para 21_500 casos -> 10 por 100k hab.
+    counts = [CountryCounts(iso3="BRA", infected=21_500, deceased=10)]
+    map_view.set_day_data(None, counts, is_real_flow=True)
+
+    color_bra = map_view._canvas._calculate_real_flow_color("BRA")
+    assert color_bra.name() == "#fff5f0"
+
+    # Confirma que vertex_bytes permanece None e que repaint executa sem erros
+    assert map_view._canvas._vertex_bytes is None
+    assert map_view.is_real_flow is True
+    map_view.repaint()
