@@ -1,7 +1,8 @@
 """Estilos, constantes visuais, limiares de mapa e tema escuro (M5 — RF22, RF26).
 
-Centraliza as cores dos compartimentos epidemiológicos, parâmetros de renderização,
-limiares de exibição de vértices no mapa e a folha de estilo QSS para o tema escuro.
+Centraliza a paleta visual alinhada aos wireframes (fundo #070c10, cards #111d25,
+acento teal #4cd7b4), cores dos compartimentos epidemiológicos, parâmetros de
+renderização do mapa, funções de formatação numérica pt-BR e folha de estilo QSS.
 """
 
 from __future__ import annotations
@@ -9,13 +10,27 @@ from __future__ import annotations
 from PySide6.QtGui import QColor
 
 # ---------------------------------------------------------------------------
+# Paleta geral do tema escuro (Wireframes)
+# ---------------------------------------------------------------------------
+BG_MAIN_HEX = "#070c10"
+BG_CARD_HEX = "#111d25"
+BG_CARD_HOVER_HEX = "#16252f"
+BORDER_SUBTLE_HEX = "#1c2c36"
+BORDER_LIGHT_HEX = "#283e4d"
+ACCENT_TEAL_HEX = "#4cd7b4"
+ACCENT_TEAL_HOVER_HEX = "#38d9a9"
+TEXT_PRIMARY_HEX = "#e6edf3"
+TEXT_SECONDARY_HEX = "#b0bec5"
+TEXT_MUTED_HEX = "#78909c"
+
+# ---------------------------------------------------------------------------
 # Cores dos compartimentos epidemiológicos (hexadecimal e QColor)
 # ---------------------------------------------------------------------------
 COLOR_HEX_SUSCEPTIBLE = "#4caf50"  # Verde (S)
-COLOR_HEX_EXPOSED = "#ff9800"  # Laranja (E)
-COLOR_HEX_INFECTED = "#f44336"  # Vermelho (I)
-COLOR_HEX_RECOVERED_NAT = "#2196f3"  # Azul (R natural)
-COLOR_HEX_RECOVERED_VAC = "#00bcd4"  # Ciano (R vacinado)
+COLOR_HEX_EXPOSED = "#ffb300"  # Âmbar / Laranja (E)
+COLOR_HEX_INFECTED = "#e53935"  # Vermelho (I)
+COLOR_HEX_RECOVERED_NAT = "#42a5f5"  # Azul (R natural)
+COLOR_HEX_RECOVERED_VAC = "#26c6da"  # Ciano (R vacinado)
 COLOR_HEX_DECEASED = "#9e9e9e"  # Cinza (D)
 COLOR_HEX_ISOLATED = "#ab47bc"  # Roxo (Isolado)
 
@@ -35,6 +50,25 @@ STATE_COLORS: dict[int, QColor] = {
     3: COLOR_RECOVERED_NAT,
     4: COLOR_DECEASED,
 }
+
+# ---------------------------------------------------------------------------
+# Funções de formatação pt-BR (ponto para milhar, vírgula para decimal)
+# ---------------------------------------------------------------------------
+def format_number_br(val: int | float, decimals: int = 0) -> str:
+    """Formata número no padrão brasileiro pt-BR (ex.: 1.840 ou 2,5)."""
+    if decimals == 0:
+        val_int = int(round(val))
+        return f"{val_int:,}".replace(",", ".")
+    formatted = f"{float(val):,.{decimals}f}"
+    main_part, dec_part = formatted.split(".")
+    return f"{main_part.replace(',', '.')},{dec_part}"
+
+
+def format_percent_br(fraction: float, decimals: int = 1) -> str:
+    """Formata fração (0..1) em percentual pt-BR (ex.: 0.184 -> '18,4%')."""
+    pct = fraction * 100.0
+    return f"{format_number_br(pct, decimals=decimals)}%"
+
 
 # ---------------------------------------------------------------------------
 # Parâmetros de renderização do mapa (RF22, Arquitetura 4.1)
@@ -63,7 +97,11 @@ REAL_FLOW_SCALE: list[tuple[float, str]] = [
 
 
 def color_for_real_cases_per_100k(cases_per_100k: float) -> QColor:
-    """Calcula a cor sequencial para o fluxo real por intensidade de casos por 100k hab."""
+    """Calcula a cor sequencial para o fluxo real por intensidade de casos por 100k hab.
+
+    [Decisão registrada A12: escala sequencial a partir de 10 por 100 mil hab.
+    Validação pendente no protótipo / máquina mais fraca do grupo].
+    """
     if cases_per_100k < REAL_FLOW_MIN_CASES_PER_100K:
         return QColor("#2d3748")  # Neutro escuro para países abaixo do limiar
 
@@ -77,196 +115,210 @@ def color_for_real_cases_per_100k(cases_per_100k: float) -> QColor:
 
 
 # ---------------------------------------------------------------------------
-# QSS Tema Escuro
+# QSS Tema Escuro Alinhado aos Wireframes
 # ---------------------------------------------------------------------------
-DARK_THEME_QSS = """
-QMainWindow, QWidget#centralWidget {
-    background-color: #121212;
-    color: #e0e0e0;
+DARK_THEME_QSS = f"""
+QMainWindow, QWidget#centralWidget {{
+    background-color: {BG_MAIN_HEX};
+    color: {TEXT_PRIMARY_HEX};
     font-family: "Segoe UI", Arial, sans-serif;
     font-size: 13px;
-}
+}}
 
-QTabWidget::pane {
-    border: 1px solid #2d3748;
-    background-color: #18191c;
-    border-radius: 4px;
-}
-
-QTabBar::tab {
-    background-color: #202225;
-    color: #9e9e9e;
-    padding: 10px 20px;
-    margin-right: 2px;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
-    font-weight: bold;
-}
-
-QTabBar::tab:selected {
-    background-color: #18191c;
-    color: #2196f3;
-    border-bottom: 2px solid #2196f3;
-}
-
-QTabBar::tab:hover:!selected {
-    background-color: #2b2d31;
-    color: #ffffff;
-}
-
-QGroupBox {
-    border: 1px solid #333a42;
+QTabWidget::pane {{
+    border: 1px solid {BORDER_SUBTLE_HEX};
+    background-color: {BG_MAIN_HEX};
     border-radius: 6px;
-    margin-top: 14px;
-    padding-top: 14px;
-    font-weight: bold;
-    color: #90caf9;
-}
+}}
 
-QGroupBox::title {
+QTabBar::tab {{
+    background-color: transparent;
+    color: {TEXT_MUTED_HEX};
+    padding: 10px 22px;
+    margin-right: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 3px solid transparent;
+}}
+
+QTabBar::tab:selected {{
+    color: {ACCENT_TEAL_HEX};
+    border-bottom: 3px solid {ACCENT_TEAL_HEX};
+}}
+
+QTabBar::tab:hover:!selected {{
+    color: {TEXT_PRIMARY_HEX};
+}}
+
+QGroupBox {{
+    background-color: {BG_CARD_HEX};
+    border: 1px solid {BORDER_SUBTLE_HEX};
+    border-radius: 8px;
+    margin-top: 14px;
+    padding: 14px;
+    font-weight: bold;
+    color: {TEXT_PRIMARY_HEX};
+}}
+
+QGroupBox::title {{
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    padding: 0 6px;
-    left: 10px;
-}
+    padding: 0 8px;
+    left: 12px;
+    color: {ACCENT_TEAL_HEX};
+    font-size: 13px;
+}}
 
-QLabel {
-    color: #cccccc;
-}
+QLabel {{
+    color: {TEXT_PRIMARY_HEX};
+}}
 
-QPushButton {
-    background-color: #2c323d;
-    color: #ffffff;
-    border: 1px solid #3e4451;
-    border-radius: 4px;
-    padding: 6px 14px;
-    font-weight: 500;
-}
+QPushButton {{
+    background-color: #16232b;
+    color: {TEXT_PRIMARY_HEX};
+    border: 1px solid {BORDER_SUBTLE_HEX};
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+}}
 
-QPushButton:hover {
-    background-color: #3e4451;
-    border-color: #2196f3;
-}
+QPushButton:hover {{
+    background-color: #1e303b;
+    border-color: {BORDER_LIGHT_HEX};
+}}
 
-QPushButton:pressed {
-    background-color: #1e2229;
-}
+QPushButton:pressed {{
+    background-color: #0d161c;
+}}
 
-QPushButton:checked {
-    background-color: #1976d2;
-    color: #ffffff;
-    border-color: #64b5f6;
-}
+QPushButton:checked {{
+    background-color: #16333c;
+    color: {ACCENT_TEAL_HEX};
+    border: 1px solid {ACCENT_TEAL_HEX};
+}}
 
-QPushButton#btnPrimary {
-    background-color: #1976d2;
-    color: #ffffff;
+QPushButton#btnPrimary {{
+    background-color: {ACCENT_TEAL_HEX};
+    color: #07151a;
+    border: none;
     font-weight: bold;
-}
+    font-size: 13px;
+}}
 
-QPushButton#btnPrimary:hover {
-    background-color: #2196f3;
-}
+QPushButton#btnPrimary:hover {{
+    background-color: {ACCENT_TEAL_HOVER_HEX};
+}}
 
-QPushButton#btnSuccess {
-    background-color: #388e3c;
-    color: #ffffff;
+QPushButton#btnSecondary {{
+    background-color: #16232b;
+    color: {TEXT_PRIMARY_HEX};
+    border: 1px solid {BORDER_SUBTLE_HEX};
+}}
+
+QPushButton#btnSecondary:hover {{
+    background-color: #1e303b;
+    border-color: {ACCENT_TEAL_HEX};
+}}
+
+QPushButton#btnDanger {{
+    background-color: #2c1214;
+    color: #ef5350;
+    border: 1px solid #5c2427;
     font-weight: bold;
-}
+}}
 
-QPushButton#btnSuccess:hover {
-    background-color: #4caf50;
-}
+QPushButton#btnDanger:hover {{
+    background-color: #3b181b;
+    border-color: #e53935;
+}}
 
-QPushButton#btnDanger {
-    background-color: #d32f2f;
-    color: #ffffff;
-    font-weight: bold;
-}
+QSlider::groove:horizontal {{
+    border: none;
+    height: 4px;
+    background: {BORDER_SUBTLE_HEX};
+    border-radius: 2px;
+}}
 
-QPushButton#btnDanger:hover {
-    background-color: #f44336;
-}
+QSlider::sub-page:horizontal {{
+    background: {ACCENT_TEAL_HEX};
+    border-radius: 2px;
+}}
 
-QSlider::groove:horizontal {
-    border: 1px solid #333a42;
-    height: 6px;
-    background: #202225;
-    border-radius: 3px;
-}
-
-QSlider::sub-page:horizontal {
-    background: #2196f3;
-    border-radius: 3px;
-}
-
-QSlider::handle:horizontal {
-    background: #90caf9;
-    border: 1px solid #1976d2;
+QSlider::handle:horizontal {{
+    background: {ACCENT_TEAL_HEX};
+    border: 2px solid {BG_MAIN_HEX};
     width: 14px;
     margin-top: -5px;
     margin-bottom: -5px;
     border-radius: 7px;
-}
+}}
 
-QSlider::handle:horizontal:hover {
+QSlider::handle:horizontal:hover {{
     background: #ffffff;
-}
+}}
 
-QDoubleSpinBox, QSpinBox, QComboBox, QLineEdit {
-    background-color: #1e2024;
-    border: 1px solid #3e4451;
-    border-radius: 4px;
-    padding: 4px 8px;
+QDoubleSpinBox, QSpinBox, QComboBox, QLineEdit {{
+    background-color: #0b141a;
+    border: 1px solid {BORDER_SUBTLE_HEX};
+    border-radius: 6px;
+    padding: 6px 10px;
     color: #ffffff;
-    selection-background-color: #1976d2;
-}
+    selection-background-color: {ACCENT_TEAL_HEX};
+    selection-color: #07151a;
+}}
 
-QDoubleSpinBox:focus, QSpinBox:focus, QComboBox:focus, QLineEdit:focus {
-    border: 1px solid #2196f3;
-}
+QDoubleSpinBox:focus, QSpinBox:focus, QComboBox:focus, QLineEdit:focus {{
+    border: 1px solid {ACCENT_TEAL_HEX};
+}}
 
-QComboBox::drop-down {
+QComboBox::drop-down {{
     border: none;
     width: 20px;
-}
+}}
 
-QComboBox QAbstractItemView {
-    background-color: #1e2024;
+QComboBox QAbstractItemView {{
+    background-color: #0b141a;
     color: #ffffff;
-    selection-background-color: #1976d2;
-    border: 1px solid #3e4451;
-}
+    selection-background-color: #16333c;
+    selection-color: {ACCENT_TEAL_HEX};
+    border: 1px solid {BORDER_SUBTLE_HEX};
+}}
 
-QScrollBar:vertical, QScrollBar:horizontal {
-    background-color: #18191c;
+QScrollBar:vertical, QScrollBar:horizontal {{
+    background-color: {BG_MAIN_HEX};
     border: none;
-    width: 10px;
-    height: 10px;
-}
+    width: 8px;
+    height: 8px;
+}}
 
-QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
-    background-color: #3e4451;
-    border-radius: 5px;
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal {{
+    background-color: {BORDER_SUBTLE_HEX};
+    border-radius: 4px;
     min-height: 20px;
     min-width: 20px;
-}
+}}
 
-QScrollBar::handle:hover {
-    background-color: #5c6370;
-}
+QScrollBar::handle:hover {{
+    background-color: {BORDER_LIGHT_HEX};
+}}
 
-QScrollBar::add-line, QScrollBar::sub-line {
+QScrollBar::add-line, QScrollBar::sub-line {{
     background: none;
     border: none;
-}
+}}
 
-QToolTip {
-    background-color: #2b2d31;
+QToolTip {{
+    background-color: #111d25;
     color: #ffffff;
-    border: 1px solid #4f545c;
-    padding: 4px 8px;
-    border-radius: 4px;
+    border: 1px solid {BORDER_LIGHT_HEX};
+    padding: 6px 10px;
+    border-radius: 6px;
     font-size: 12px;
-}
+}}
+
+QScrollArea {{
+    background: transparent;
+    border: none;
+}}
 """
