@@ -141,9 +141,7 @@ class PandemicCard(QFrame):
         # Cabeçalho do card: Título e Badge de Escopo
         top_box = QHBoxLayout()
         lbl_name = QLabel(name)
-        lbl_name.setStyleSheet(
-            f"font-size: 15px; font-weight: bold; color: {TEXT_PRIMARY_HEX};"
-        )
+        lbl_name.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {TEXT_PRIMARY_HEX};")
         top_box.addWidget(lbl_name)
         top_box.addStretch(1)
 
@@ -190,10 +188,10 @@ class MainWindow(QMainWindow):
             self._world: World = world
         elif has_processed_data():
             try:
-                inputs = load_world_inputs(PROCESSED_DATA_DIR)
+                countries, edges = load_world_inputs(PROCESSED_DATA_DIR)
                 self._world = build_world(
-                    countries=inputs.countries,
-                    routes=inputs.routes,
+                    countries=countries,
+                    routes=edges,
                     total_vertices=8000,
                 )
             except Exception:
@@ -518,9 +516,7 @@ class MainWindow(QMainWindow):
         comp_layout = QVBoxLayout(grp_comp)
         comp_layout.setSpacing(4)
 
-        self._lbl_res_comp_status = QLabel(
-            "Indisponível (nenhuma pandemia real carregada)"
-        )
+        self._lbl_res_comp_status = QLabel("Indisponível (nenhuma pandemia real carregada)")
         self._lbl_res_comp_status.setWordWrap(True)
         self._lbl_res_comp_status.setStyleSheet(
             "color: #78909c; font-style: italic; font-size: 11px;"
@@ -872,9 +868,7 @@ class MainWindow(QMainWindow):
         p_id, p_name, _, _, _ = self._pandemics_info[row]
         self._load_pandemic_by_id(p_id, p_name)
 
-    def _load_pandemic_by_id(
-        self, p_id: str, p_name: str, series: Any = None
-    ) -> None:
+    def _load_pandemic_by_id(self, p_id: str, p_name: str, series: Any = None) -> None:
         """Carrega pandemia histórica e conecta player, gráficos e mapa à RealTimeline."""
         try:
             if self._sim_thread.isRunning():
@@ -1175,9 +1169,7 @@ class MainWindow(QMainWindow):
 
         self._lbl_net_vertices.setText(f"Vértices no grafo: {format_number_br(res.num_vertices)}")
         self._lbl_net_deg_avg.setText(f"Grau médio: {format_number_br(res.avg_degree, 2)}")
-        self._lbl_net_deg_max.setText(
-            f"Grau máx: {res.max_degree} (nó #{res.max_degree_vertex})"
-        )
+        self._lbl_net_deg_max.setText(f"Grau máx: {res.max_degree} (nó #{res.max_degree_vertex})")
 
         top_bet_str = ", ".join(
             f"#{v}:{format_number_br(val, 3)}" for v, val in res.top_betweenness[:3]
