@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from epidemia.app.comparison import compare_simulation_to_real
 from epidemia.app.export import export_timeline_csv
 from epidemia.app.panel_metrics import (
     NetworkAnalysisResult,
@@ -231,8 +232,16 @@ class MainWindow(QMainWindow):
         self._lbl_res_deaths = QLabel("Óbitos totais: --")
         self._lbl_res_mortality = QLabel("Letalidade: --")
         self._lbl_res_eff_r0 = QLabel("R0 efetivo estimado: --")
-        self._lbl_res_comparison = QLabel("Comparação real (RF14): Indisponível (M4)")
-        self._lbl_res_comparison.setStyleSheet("color: #78909c; font-style: italic;")
+
+        # Seção Comparação com Dados Reais (RF14)
+        self._lbl_res_comp_status = QLabel(
+            "Comparação (RF14): Indisponível (nenhuma pandemia real carregada)"
+        )
+        self._lbl_res_comp_status.setStyleSheet("color: #78909c; font-style: italic;")
+        self._lbl_res_comp_cases_mse = QLabel("• MSE Casos: --")
+        self._lbl_res_comp_deaths_mse = QLabel("• MSE Mortes: --")
+        self._lbl_res_comp_peak_diff = QLabel("• Dif. Pico Novos/Dia: --")
+        self._lbl_res_comp_final_diff = QLabel("• Dif. Tamanho Final: --")
 
         form_epi.addWidget(self._lbl_res_peak_active)
         form_epi.addWidget(self._lbl_res_peak_active_day)
@@ -240,7 +249,11 @@ class MainWindow(QMainWindow):
         form_epi.addWidget(self._lbl_res_deaths)
         form_epi.addWidget(self._lbl_res_mortality)
         form_epi.addWidget(self._lbl_res_eff_r0)
-        form_epi.addWidget(self._lbl_res_comparison)
+        form_epi.addWidget(self._lbl_res_comp_status)
+        form_epi.addWidget(self._lbl_res_comp_cases_mse)
+        form_epi.addWidget(self._lbl_res_comp_deaths_mse)
+        form_epi.addWidget(self._lbl_res_comp_peak_diff)
+        form_epi.addWidget(self._lbl_res_comp_final_diff)
 
         right_layout.addWidget(grp_epi)
 
@@ -537,6 +550,56 @@ class MainWindow(QMainWindow):
         else:
             self._lbl_res_eff_r0.setText("R0 efetivo: Não calculável na fase atual")
 
+        self._update_comparison_metrics()
+
+    def _update_comparison_metrics(self) -> None:
+        """Atualiza a comparação entre a simulação atual e a pandemia real carregada (RF14)."""
+        if not self._real_session.is_loaded:
+            self._lbl_res_comp_status.setText(
+                "Comparação (RF14): Indisponível (nenhuma pandemia real carregada)"
+            )
+            self._lbl_res_comp_status.setStyleSheet("color: #78909c; font-style: italic;")
+            self._lbl_res_comp_cases_mse.setText("• MSE Casos: --")
+            self._lbl_res_comp_deaths_mse.setText("• MSE Mortes: --")
+            self._lbl_res_comp_peak_diff.setText("• Dif. Pico Novos/Dia: --")
+            self._lbl_res_comp_final_diff.setText("• Dif. Tamanho Final: --")
+            return
+
+        if not self._session.is_started or self._session.timeline().days_available <= 0:
+            self._lbl_res_comp_status.setText(
+                "Comparação (RF14): Indisponível (simulação não concluída ou sem dados)"
+            )
+            self._lbl_res_comp_status.setStyleSheet("color: #78909c; font-style: italic;")
+            self._lbl_res_comp_cases_mse.setText("• MSE Casos: --")
+            self._lbl_res_comp_deaths_mse.setText("• MSE Mortes: --")
+            self._lbl_res_comp_peak_diff.setText("• Dif. Pico Novos/Dia: --")
+            self._lbl_res_comp_final_diff.setText("• Dif. Tamanho Final: --")
+            return
+
+        try:
+            p_name = (self._real_session.current_pandemic or "real").upper()
+            comp = compare_simulation_to_real(
+                self._session.timeline(), self._real_session.timeline(), country=None
+            )
+            self._lbl_res_comp_status.setText(f"Comparação RF14 ({p_name}):")
+            self._lbl_res_comp_status.setStyleSheet("color: #90caf9; font-weight: bold;")
+
+            self._lbl_res_comp_cases_mse.setText(f"• MSE Casos: {comp.cases_mse:.6f}")
+            self._lbl_res_comp_deaths_mse.setText(f"• MSE Mortes: {comp.deaths_mse:.6f}")
+            self._lbl_res_comp_peak_diff.setText(
+                f"• Dif. Pico Novos/Dia: {comp.peak_day_difference:+d} dias"
+            )
+            self._lbl_res_comp_final_diff.setText(
+                f"• Dif. Tamanho Final: {comp.final_size_difference:+.4f}"
+            )
+        except Exception as exc:
+            self._lbl_res_comp_status.setText(f"Comparação RF14: Indisponível ({exc})")
+            self._lbl_res_comp_status.setStyleSheet("color: #e57373; font-style: italic;")
+            self._lbl_res_comp_cases_mse.setText("• MSE Casos: --")
+            self._lbl_res_comp_deaths_mse.setText("• MSE Mortes: --")
+            self._lbl_res_comp_peak_diff.setText("• Dif. Pico Novos/Dia: --")
+            self._lbl_res_comp_final_diff.setText("• Dif. Tamanho Final: --")
+
     def _reset_epidemic_summary_labels(self) -> None:
         self._lbl_res_peak_active.setText("Pico de ativos: --")
         self._lbl_res_peak_active_day.setText("Dia do pico: --")
@@ -544,6 +607,7 @@ class MainWindow(QMainWindow):
         self._lbl_res_deaths.setText("Óbitos totais: --")
         self._lbl_res_mortality.setText("Letalidade: --")
         self._lbl_res_eff_r0.setText("R0 efetivo estimado: --")
+        self._update_comparison_metrics()
 
     def _on_reset_requested(self) -> None:
         if self._sim_thread.isRunning():

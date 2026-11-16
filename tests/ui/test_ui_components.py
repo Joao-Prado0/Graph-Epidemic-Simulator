@@ -297,3 +297,46 @@ def test_main_window_geometria_real_ou_fallback_sintetico(qapp, monkeypatch):
     assert win_custom._is_synthetic_world is False
     assert "Geometrias reais carregadas" in win_custom.statusBar().currentMessage()
     win_custom.close()
+
+
+def test_main_window_comparison_rf14(qapp, tmp_path):
+    """Verifica os campos do ComparisonResult (RF14) no painel ou Indisponível com motivo."""
+    from epidemia.datasets.series import PANDEMIC_SARS, load_pandemic_series
+
+    world = create_synthetic_world(total_vertices=60, seed=42)
+    win = MainWindow(world=world)
+
+    # 1. Sem pandemia carregada e sem simulação
+    win._update_comparison_metrics()
+    assert "Indisponível (nenhuma pandemia real carregada)" in win._lbl_res_comp_status.text()
+    assert win._lbl_res_comp_cases_mse.text() == "• MSE Casos: --"
+
+    # 2. Carrega pandemia real via série sintética
+    csv_file = tmp_path / "sars.csv"
+    csv_file.write_text(
+        "iso3,date,cases,deaths,recovered\n"
+        "BRA,2003-03-17,10,1,2\n"
+        "BRA,2003-03-18,50,4,10\n"
+        "BRA,2003-03-19,100,8,25\n",
+        encoding="utf-8",
+    )
+    series = load_pandemic_series(csv_file, PANDEMIC_SARS)
+    win._real_session.load_pandemic("sars", series=series)
+
+    # Com pandemia carregada mas sem simulação iniciada
+    win._update_comparison_metrics()
+    assert "Indisponível (simulação não concluída" in win._lbl_res_comp_status.text()
+
+    # 3. Inicia e roda alguns dias de simulação
+    win._session.configure(SimulationConfig(seed=42))
+    win._session.start(patient_zero=[0, 1])
+    win._session.run_day()
+    win._session.run_day()
+
+    win._update_comparison_metrics()
+    assert "Comparação RF14 (SARS)" in win._lbl_res_comp_status.text()
+    assert "• MSE Casos:" in win._lbl_res_comp_cases_mse.text()
+    assert "• MSE Mortes:" in win._lbl_res_comp_deaths_mse.text()
+    assert "• Dif. Pico Novos/Dia:" in win._lbl_res_comp_peak_diff.text()
+    assert "• Dif. Tamanho Final:" in win._lbl_res_comp_final_diff.text()
+    win.close()
