@@ -1,5 +1,6 @@
 """Camada de aplicação: sessões e casos de uso sem dependência de interface gráfica."""
 
+from epidemia.app.comparison import ComparisonResult, compare_simulation_to_real
 from epidemia.app.config_io import load_config, save_config
 from epidemia.app.export import export_timeline_csv
 from epidemia.app.panel_metrics import (
@@ -12,12 +13,14 @@ from epidemia.app.real_session import RealCountryCounts, RealSession, RealTimeli
 from epidemia.app.simulation_session import SimulationSession
 
 __all__ = [
+    "ComparisonResult",
     "NetworkAnalysisResult",
     "PlaybackController",
     "RealCountryCounts",
     "RealSession",
     "RealTimeline",
     "SimulationSession",
+    "compare_simulation_to_real",
     "compute_epidemic_summary_from_timeline",
     "compute_network_analysis",
     "export_timeline_csv",
