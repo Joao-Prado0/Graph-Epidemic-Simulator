@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 
 $addDataArgs = @()
 $processedDir = "data\processed"
@@ -12,5 +12,8 @@ if ((Test-Path $processedDir) -and (Get-ChildItem -Path $processedDir -File | Wh
 }
 
 pyinstaller --noconfirm --clean --noconsole --name SimuladorEpidemias --paths src @addDataArgs src\epidemia\main.py
+if ($LASTEXITCODE -ne 0) {
+    throw "Falha na compilacao com PyInstaller (codigo de saida: $LASTEXITCODE)."
+}
 
 Write-Host "Executavel gerado em dist\SimuladorEpidemias\SimuladorEpidemias.exe"
