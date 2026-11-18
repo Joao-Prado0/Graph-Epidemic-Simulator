@@ -301,3 +301,51 @@ class WorldCache:
 
     def __len__(self) -> int:
         return len(self._store)
+
+
+def _fallback_square_geojson(lon0: float, lat0: float, size: float = 6.0) -> dict[str, object]:
+    """Gera geometria GeoJSON retangular mínima para fallback seguro sem arquivos externos."""
+    ring = [
+        (lon0, lat0),
+        (lon0 + size, lat0),
+        (lon0 + size, lat0 + size),
+        (lon0, lat0 + size),
+    ]
+    return {"type": "Polygon", "coordinates": [ring]}
+
+
+def create_fallback_countries() -> list[CountryInput]:
+    """Retorna países mínimos de fallback quando ``data/processed/`` está ausente."""
+    return [
+        CountryInput("BRA", "Brasil", 215_000_000, _fallback_square_geojson(-50.0, -15.0, 8.0)),
+        CountryInput("GIN", "Guiné", 13_500_000, _fallback_square_geojson(-12.0, 9.0, 4.0)),
+        CountryInput("LBR", "Libéria", 5_200_000, _fallback_square_geojson(-10.0, 5.0, 4.0)),
+        CountryInput("SLE", "Serra Leoa", 8_400_000, _fallback_square_geojson(-13.0, 7.0, 4.0)),
+        CountryInput("TUV", "Tuvalu", 11_000, _fallback_square_geojson(178.0, -8.0, 3.0)),
+    ]
+
+
+def create_fallback_routes() -> list[RouteInput]:
+    """Retorna rotas aéreas mínimas de fallback."""
+    return [
+        RouteInput("BRA", "GIN", 15),
+        RouteInput("GIN", "LBR", 6),
+        RouteInput("LBR", "SLE", 10),
+        RouteInput("SLE", "BRA", 4),
+    ]
+
+
+def create_fallback_world(
+    total_vertices: int = 100,
+    seed: int = 42,
+    scenario: str | ScenarioSpec = SCENARIO_GLOBAL,
+) -> World:
+    """Constrói um objeto ``World`` mínimo sem depender de arquivos externos ou ``tests/``."""
+    return build_world(
+        countries=create_fallback_countries(),
+        routes=create_fallback_routes(),
+        seed=seed,
+        scenario=scenario,
+        total_vertices=total_vertices,
+        min_vertices=DEFAULT_MIN_VERTICES,
+    )

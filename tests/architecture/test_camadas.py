@@ -109,5 +109,16 @@ def test_app_nao_depende_de_ui_nem_qt():
         "networkx",
         "shapely",
         "ui",
+        "tests",
     }
     assert _verificar_camada("app", proibidos) == []
+
+
+def test_ui_nao_importa_pacote_de_testes():
+    proibidos = {
+        "pandas",
+        "networkx",
+        "shapely",
+        "tests",
+    }
+    assert _verificar_camada("ui", proibidos) == []

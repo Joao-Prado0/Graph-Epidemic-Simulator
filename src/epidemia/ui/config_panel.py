@@ -9,8 +9,7 @@ E rodapé de ações: Voltar, Calibrar beta, Salvar/Carregar configuração e In
 
 from __future__ import annotations
 
-import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -32,8 +31,16 @@ from PySide6.QtWidgets import (
 )
 
 from epidemia.app.config_io import load_config, save_config
-from epidemia.core.epidemic.parameters import SimulationConfig
+from epidemia.core.epidemic.parameters import (
+    DEFAULT_VACCINE_EFFICACY,
+    INTERVENTION_TABLE,
+    LEVEL_HIGH,
+    LEVEL_LOW,
+    LEVEL_MEDIUM,
+    SimulationConfig,
+)
 from epidemia.core.errors import EpidemiaError
+from epidemia.core.seeds import SUBSYSTEM_PATIENT_ZERO, SeedBook, derive_subsystem_seed
 from epidemia.ui.styles import (
     ACCENT_TEAL_HEX,
     BORDER_LIGHT_HEX,
@@ -42,28 +49,21 @@ from epidemia.ui.styles import (
     TEXT_PRIMARY_HEX,
     TEXT_SECONDARY_HEX,
     format_number_br,
+    format_percent_br,
 )
 
 if TYPE_CHECKING:
-    pass
+    from epidemia.world.world import World
 
-# Países pré-definidos para seleção de paciente zero manual
-DEFAULT_COUNTRIES = [
-    "Brasil",
-    "Estados Unidos",
-    "China",
-    "África do Sul",
-    "Alemanha",
-    "Itália",
-    "Reino Unido",
-    "França",
-    "Índia",
-    "Japão",
-    "República Democrática do Congo",
-    "Guiné",
-    "Serra Leoa",
-    "Libéria",
-]
+
+def _format_intervention_card_texts(level: str) -> tuple[str, str]:
+    """Formata os textos de isolamento e vacinação diretamente de INTERVENTION_TABLE (M3)."""
+    params = INTERVENTION_TABLE[level]
+    iso_pct = format_percent_br(params.isolation_daily_prob, decimals=0)
+    iso_text = f"{iso_pct} de isolamento / {params.isolation_duration_days} dias"
+    vac_pct = format_percent_br(params.vaccination_daily_fraction, decimals=1)
+    vac_text = f"Vacinação no dia {params.vaccination_start_day} ({vac_pct} / dia)"
+    return iso_text, vac_text
 
 
 class InterventionCard(QFrame):
@@ -152,10 +152,15 @@ class ConfigPanel(QWidget):
     config_changed = Signal(SimulationConfig)
     back_requested = Signal()
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, world: World | None = None) -> None:
         super().__init__(parent)
+        self._world: World | None = world
         self._calibrated_beta_value: float | None = None
+        self._seed_click_count: int = 0
+        self._pz_pick_count: int = 0
         self._init_ui()
+        if world is not None:
+            self.set_world(world)
 
     def _init_ui(self) -> None:
         root_layout = QVBoxLayout(self)
@@ -239,14 +244,17 @@ class ConfigPanel(QWidget):
         beta_layout.setContentsMargins(8, 6, 8, 6)
         beta_layout.setSpacing(2)
 
-        lbl_beta_hdr = QLabel("Taxa de transmissão (β):")
+        lbl_beta_hdr = QLabel("Taxa de transmissão (β) e verificação analítica:")
         lbl_beta_hdr.setStyleSheet(f"font-size: 11px; color: {TEXT_MUTED_HEX};")
         self._lbl_calibrated_beta = QLabel("β: Calibração pendente")
         self._lbl_calibrated_beta.setStyleSheet(
             f"font-size: 12px; font-weight: bold; color: {ACCENT_TEAL_HEX};"
         )
+        self._lbl_calibration_details = QLabel("R₀ empírico: -- · R₀ Newman: --")
+        self._lbl_calibration_details.setStyleSheet(f"font-size: 11px; color: {TEXT_MUTED_HEX};")
         beta_layout.addWidget(lbl_beta_hdr)
         beta_layout.addWidget(self._lbl_calibrated_beta)
+        beta_layout.addWidget(self._lbl_calibration_details)
         layout.addWidget(self._beta_card)
 
         # Gama (taxa de saída de I)
@@ -349,25 +357,14 @@ class ConfigPanel(QWidget):
 
         layout.addLayout(lvl_btn_box)
 
-        # 3 Cards de regras detalhadas
-        self._card_baixo = InterventionCard(
-            "baixo",
-            "Nível Baixo",
-            "10% de isolamento / 14 dias",
-            "Vacinação no dia 60 (0,2% / dia)",
-        )
-        self._card_medio = InterventionCard(
-            "medio",
-            "Nível Médio",
-            "25% de isolamento / 21 dias",
-            "Vacinação no dia 45 (0,5% / dia)",
-        )
-        self._card_alto = InterventionCard(
-            "alto",
-            "Nível Alto",
-            "40% de isolamento / 30 dias",
-            "Vacinação no dia 30 (1,0% / dia)",
-        )
+        # 3 Cards de regras detalhadas lidas diretamente de INTERVENTION_TABLE (M3)
+        low_iso, low_vac = _format_intervention_card_texts(LEVEL_LOW)
+        med_iso, med_vac = _format_intervention_card_texts(LEVEL_MEDIUM)
+        high_iso, high_vac = _format_intervention_card_texts(LEVEL_HIGH)
+
+        self._card_baixo = InterventionCard(LEVEL_LOW, "Nível Baixo", low_iso, low_vac)
+        self._card_medio = InterventionCard(LEVEL_MEDIUM, "Nível Médio", med_iso, med_vac)
+        self._card_alto = InterventionCard(LEVEL_HIGH, "Nível Alto", high_iso, high_vac)
 
         self._card_baixo.clicked.connect(self._select_intervention_level)
         self._card_medio.clicked.connect(self._select_intervention_level)
@@ -377,7 +374,7 @@ class ConfigPanel(QWidget):
         layout.addWidget(self._card_medio)
         layout.addWidget(self._card_alto)
 
-        # Pill / Card com eficácia da vacina
+        # Pill / Card com eficácia da vacina lida diretamente de DEFAULT_VACCINE_EFFICACY (M3)
         card_vac = QFrame()
         card_vac.setStyleSheet(
             f"background-color: #0b141a; border: 1px solid {BORDER_SUBTLE_HEX};"
@@ -387,12 +384,11 @@ class ConfigPanel(QWidget):
         vac_layout.setContentsMargins(8, 6, 8, 6)
         vac_layout.setSpacing(2)
 
+        eff_pct = format_percent_br(DEFAULT_VACCINE_EFFICACY, decimals=0)
         lbl_vac_hdr = QLabel("Eficácia da vacina:")
         lbl_vac_hdr.setStyleSheet(f"font-size: 11px; color: {TEXT_MUTED_HEX};")
-        lbl_vac_val = QLabel("80% (fixo no modelo)")
-        lbl_vac_val.setStyleSheet(
-            f"font-size: 12px; font-weight: bold; color: {ACCENT_TEAL_HEX};"
-        )
+        lbl_vac_val = QLabel(f"{eff_pct} (fixo no modelo)")
+        lbl_vac_val.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {ACCENT_TEAL_HEX};")
         vac_layout.addWidget(lbl_vac_hdr)
         vac_layout.addWidget(lbl_vac_val)
         layout.addWidget(card_vac)
@@ -461,7 +457,7 @@ class ConfigPanel(QWidget):
         country_box = QHBoxLayout()
         country_box.addWidget(QLabel("País:"))
         self._combo_pz_country = QComboBox()
-        self._combo_pz_country.addItems(DEFAULT_COUNTRIES)
+        self._combo_pz_country.currentIndexChanged.connect(self._on_pz_country_changed)
         country_box.addWidget(self._combo_pz_country, stretch=1)
         pz_m_layout.addLayout(country_box)
 
@@ -470,7 +466,7 @@ class ConfigPanel(QWidget):
         self._spin_pz_vertex = QSpinBox()
         self._spin_pz_vertex.setRange(0, 999999)
         self._spin_pz_vertex.setValue(0)
-        self._spin_pz_vertex.valueChanged.connect(self._update_pz_indicator)
+        self._spin_pz_vertex.valueChanged.connect(self._on_pz_vertex_changed)
 
         self._edit_patient_zero = QLineEdit()
         self._edit_patient_zero.setPlaceholderText("IDs separados por vírgula (ex: 0, 10)")
@@ -479,7 +475,7 @@ class ConfigPanel(QWidget):
         vertex_box.addWidget(self._spin_pz_vertex, stretch=1)
         pz_m_layout.addLayout(vertex_box)
 
-        self._btn_pick_random_vertex = QPushButton("Sortear vértice")
+        self._btn_pick_random_vertex = QPushButton("Sortear vértice no país")
         self._btn_pick_random_vertex.clicked.connect(self._on_pick_random_vertex)
         pz_m_layout.addWidget(self._btn_pick_random_vertex)
 
@@ -593,27 +589,91 @@ class ConfigPanel(QWidget):
         self._btn_scen_regional.setChecked(scenario == "regional_ebola")
 
     def _on_generate_random_seed(self) -> None:
-        self._spin_seed.setValue(random.randint(1, 999999))
+        self._seed_click_count += 1
+        derived = derive_subsystem_seed(
+            self._spin_seed.value(), f"ui_seed_{self._seed_click_count}"
+        )
+        self._spin_seed.setValue((derived % 999999) + 1)
 
     def _on_pz_mode_changed(self, index: int) -> None:
         is_manual = index == 1
         self._pz_manual_frame.setEnabled(is_manual)
         self._update_pz_indicator()
 
+    def _on_pz_country_changed(self, _index: int) -> None:
+        """Sincroniza o intervalo de vértices com os vértices reais do país selecionado."""
+        self._edit_patient_zero.clear()
+        if self._world is not None and self._combo_pz_country.count() > 0:
+            iso3 = self._combo_pz_country.currentData()
+            if iso3 and iso3 in self._world.country_vertices:
+                verts = self._world.country_vertices[str(iso3)]
+                if verts:
+                    self._spin_pz_vertex.blockSignals(True)
+                    self._spin_pz_vertex.setRange(min(verts), max(verts))
+                    self._spin_pz_vertex.setValue(verts[0])
+                    self._spin_pz_vertex.blockSignals(False)
+        self._update_pz_indicator()
+
+    def _on_pz_vertex_changed(self, _value: int) -> None:
+        self._edit_patient_zero.clear()
+        self._update_pz_indicator()
+
     def _on_pick_random_vertex(self) -> None:
-        rand_v = random.randint(0, 999)
-        self._spin_pz_vertex.setValue(rand_v)
+        """Sorteia de forma determinística (SeedBook M1) um vértice do país selecionado."""
+        self._pz_pick_count += 1
+        self._edit_patient_zero.clear()
+        rng = SeedBook(self._spin_seed.value()).rng(
+            f"{SUBSYSTEM_PATIENT_ZERO}_{self._pz_pick_count}"
+        )
+
+        if self._world is not None and self._combo_pz_country.count() > 0:
+            iso3 = self._combo_pz_country.currentData()
+            if iso3 and iso3 in self._world.country_vertices:
+                verts = self._world.country_vertices[str(iso3)]
+                if verts:
+                    chosen_v = rng.choice(verts)
+                    self._spin_pz_vertex.setValue(chosen_v)
+                    self._update_pz_indicator()
+                    return
+
+        low = self._spin_pz_vertex.minimum()
+        high = min(self._spin_pz_vertex.maximum(), 999)
+        self._spin_pz_vertex.setValue(rng.randint(low, max(low, high)))
         self._update_pz_indicator()
 
     def _update_pz_indicator(self) -> None:
         if self._combo_pz_mode.currentIndex() == 0:
             self._lbl_pz_indicator.setText("Paciente zero: Aleatório (sorteio no início)")
         else:
-            country = self._combo_pz_country.currentText()
             v_id = self._spin_pz_vertex.value()
+            if self._world is not None and 0 <= v_id < len(self._world.vertex_country):
+                iso3 = self._world.country_of_vertex(v_id)
+                c_name = self._world.country_names.get(iso3, iso3)
+                country = f"{c_name} ({iso3})"
+            else:
+                country = self._combo_pz_country.currentText() or "Grafo"
             self._lbl_pz_indicator.setText(f"Paciente zero: Vértice #{v_id:04d} ({country})")
 
     # --- Métodos públicos da API da UI ---
+
+    def set_world(self, world: World | None) -> None:
+        """Conecta o painel aos países e vértices reais do objeto ``World`` (M1)."""
+        self._world = world
+        self._combo_pz_country.blockSignals(True)
+        self._combo_pz_country.clear()
+
+        if world is not None:
+            for iso3 in world.country_codes:
+                name = world.country_names.get(iso3, iso3)
+                n_v = len(world.country_vertices.get(iso3, ()))
+                self._combo_pz_country.addItem(f"{name} ({iso3}) [{n_v} nós]", iso3)
+
+            idx_bra = self._combo_pz_country.findData("BRA")
+            self._combo_pz_country.setCurrentIndex(idx_bra if idx_bra >= 0 else 0)
+
+        self._combo_pz_country.blockSignals(False)
+        if world is not None:
+            self._on_pz_country_changed(self._combo_pz_country.currentIndex())
 
     def get_simulation_config(self) -> SimulationConfig:
         """Constrói um ``SimulationConfig`` com base nos campos atuais."""
@@ -658,29 +718,56 @@ class ConfigPanel(QWidget):
 
         if cfg.patient_zero is not None and len(cfg.patient_zero) > 0:
             self._combo_pz_mode.setCurrentIndex(1)
+            first_v = cfg.patient_zero[0]
+            if self._world is not None and 0 <= first_v < len(self._world.vertex_country):
+                iso3 = self._world.country_of_vertex(first_v)
+                c_idx = self._combo_pz_country.findData(iso3)
+                if c_idx >= 0:
+                    self._combo_pz_country.blockSignals(True)
+                    self._combo_pz_country.setCurrentIndex(c_idx)
+                    self._combo_pz_country.blockSignals(False)
+                    verts = self._world.country_vertices.get(iso3, [])
+                    if verts:
+                        self._spin_pz_vertex.blockSignals(True)
+                        self._spin_pz_vertex.setRange(min(verts), max(verts))
+                        self._spin_pz_vertex.blockSignals(False)
+
+            self._spin_pz_vertex.blockSignals(True)
+            self._spin_pz_vertex.setValue(first_v)
+            self._spin_pz_vertex.blockSignals(False)
             self._edit_patient_zero.setText(", ".join(str(x) for x in cfg.patient_zero))
-            self._spin_pz_vertex.setValue(cfg.patient_zero[0])
-            self._lbl_pz_indicator.setText(
-                f"Paciente zero: Vértices {cfg.patient_zero}"
-            )
+            self._lbl_pz_indicator.setText(f"Paciente zero: Vértices {cfg.patient_zero}")
         else:
             self._combo_pz_mode.setCurrentIndex(0)
             self._edit_patient_zero.clear()
             self._update_pz_indicator()
 
-    def set_calibrated_beta(self, beta: float | None) -> None:
-        """Exibe o valor de beta calibrado no label."""
+    def set_calibrated_beta(
+        self,
+        beta: float | None,
+        calibration_result: Any = None,
+    ) -> None:
+        """Exibe o valor de beta calibrado e os indicadores analíticos de M3 no label."""
         self._calibrated_beta_value = beta
         if beta is None:
             self._lbl_calibrated_beta.setText("β: Calibração pendente")
             self._lbl_calibrated_beta.setStyleSheet(
                 f"font-size: 12px; font-weight: bold; color: {TEXT_MUTED_HEX};"
             )
+            self._lbl_calibration_details.setText("R₀ empírico: -- · R₀ Newman: --")
         else:
             self._lbl_calibrated_beta.setText(f"β = {format_number_br(beta, 4)}")
             self._lbl_calibrated_beta.setStyleSheet(
                 f"font-size: 12px; font-weight: bold; color: {ACCENT_TEAL_HEX};"
             )
+            if calibration_result is not None:
+                ach = getattr(calibration_result, "achieved_r0", None)
+                newm = getattr(calibration_result, "newman_r0", None)
+                if ach is not None and newm is not None:
+                    self._lbl_calibration_details.setText(
+                        f"R₀ empírico: {format_number_br(ach, 2)} · "
+                        f"R₀ Newman: {format_number_br(newm, 2)}"
+                    )
 
     def set_running_state(self, running: bool) -> None:
         """Habilita ou desabilita campos de configuração durante a execução."""

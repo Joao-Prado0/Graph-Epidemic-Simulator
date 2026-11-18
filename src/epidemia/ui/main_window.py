@@ -47,6 +47,7 @@ from epidemia.app.simulation_session import SimulationSession
 from epidemia.config import PROCESSED_DATA_DIR, has_processed_data
 from epidemia.core.errors import EpidemiaError
 from epidemia.datasets.loaders import load_world_inputs
+from epidemia.datasets.series import PANDEMIC_EBOLA, load_pandemic_series
 from epidemia.ui.charts_view import ChartsView
 from epidemia.ui.config_panel import ConfigPanel
 from epidemia.ui.export_dialog import ExportDialog
@@ -72,8 +73,11 @@ from epidemia.ui.styles import (
     format_number_br,
     format_percent_br,
 )
-from epidemia.world.builder import build_world
-from tests.fixtures import create_synthetic_world
+from epidemia.world.builder import (
+    WorldCache,
+    create_fallback_countries,
+    create_fallback_routes,
+)
 
 if TYPE_CHECKING:
     from epidemia.core.epidemic.parameters import SimulationConfig
@@ -186,22 +190,51 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Simulador de Epidemias em Redes — Antigravity")
         self.resize(1380, 880)
 
+        self._world_cache: WorldCache = WorldCache()
+        self._custom_world_provided: bool = world is not None
         self._is_synthetic_world: bool = False
+        self._raw_countries: list[Any] = []
+        self._raw_edges: list[Any] = []
+        self._default_total_vertices: int = 8000
+
         if world is not None:
             self._world: World = world
         elif has_processed_data():
             try:
                 countries, edges = load_world_inputs(PROCESSED_DATA_DIR)
-                self._world = build_world(
-                    countries=countries,
-                    routes=edges,
-                    total_vertices=8000,
+                self._raw_countries = list(countries)
+                self._raw_edges = list(edges)
+                self._default_total_vertices = 8000
+                self._world = self._world_cache.get_or_build(
+                    self._raw_countries,
+                    self._raw_edges,
+                    seed=42,
+                    scenario="global",
+                    total_vertices=self._default_total_vertices,
                 )
             except Exception:
-                self._world = create_synthetic_world(total_vertices=100)
+                self._raw_countries = create_fallback_countries()
+                self._raw_edges = create_fallback_routes()
+                self._default_total_vertices = 100
+                self._world = self._world_cache.get_or_build(
+                    self._raw_countries,
+                    self._raw_edges,
+                    seed=42,
+                    scenario="global",
+                    total_vertices=self._default_total_vertices,
+                )
                 self._is_synthetic_world = True
         else:
-            self._world = create_synthetic_world(total_vertices=100)
+            self._raw_countries = create_fallback_countries()
+            self._raw_edges = create_fallback_routes()
+            self._default_total_vertices = 100
+            self._world = self._world_cache.get_or_build(
+                self._raw_countries,
+                self._raw_edges,
+                seed=42,
+                scenario="global",
+                total_vertices=self._default_total_vertices,
+            )
             self._is_synthetic_world = True
 
         self._session: SimulationSession = SimulationSession(self._world)
@@ -287,7 +320,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._sim_stack)
 
         # Página 0 da Simulação: Tela 2 (Configuração)
-        self._config_panel = ConfigPanel()
+        self._config_panel = ConfigPanel(world=self._world)
         self._sim_stack.addWidget(self._config_panel)
 
         # Página 1 da Simulação: Tela 5 (Simulação em Andamento)
@@ -1000,19 +1033,64 @@ class MainWindow(QMainWindow):
         self._lbl_real_status.setStyleSheet("color: #78909c;")
         self._real_stack.setCurrentIndex(0)
 
+    def _ensure_world_for_config(self, config: SimulationConfig) -> None:
+        """Obtém ou reconstrói o World via WorldCache (M1) se seed ou scenario mudarem."""
+        if self._custom_world_provided or not self._raw_countries:
+            return
+        if self._world.seed == config.seed and self._world.scenario == config.scenario:
+            return
+
+        daily_cases: dict[str, tuple[int, ...]] | None = None
+        if config.scenario == "regional_ebola":
+            ebola_path = PROCESSED_DATA_DIR / f"{PANDEMIC_EBOLA}.csv"
+            if ebola_path.is_file():
+                try:
+                    ebola_series = load_pandemic_series(ebola_path, PANDEMIC_EBOLA)
+                    daily_cases = {
+                        iso3: ebola_series.cumulative_cases_series(iso3)
+                        for iso3 in ebola_series.countries
+                    }
+                except Exception:
+                    daily_cases = None
+
+        self._world = self._world_cache.get_or_build(
+            self._raw_countries,
+            self._raw_edges,
+            seed=config.seed,
+            scenario=config.scenario,
+            daily_cases_by_country=daily_cases,
+            total_vertices=self._default_total_vertices,
+        )
+        self._session = SimulationSession(self._world)
+        self._real_session = RealSession(processed_dir=PROCESSED_DATA_DIR, world=self._world)
+        self._map_view.set_world(self._world)
+        self._real_map_view.set_world(self._world)
+        self._config_panel.set_world(self._world)
+        self._populate_path_combos()
+
     def _on_calibrate_beta(self, config: SimulationConfig) -> None:
         try:
+            self._ensure_world_for_config(config)
             self._session.configure(config)
             beta = self._session.calibrate_beta()
-            self._config_panel.set_calibrated_beta(beta)
+            self._config_panel.set_calibrated_beta(beta, self._session.calibration_result)
         except EpidemiaError as exc:
             self.show_error_dialog("Erro na Calibração", str(exc))
 
     def _on_calibration_done(self, beta: float) -> None:
-        self._config_panel.set_calibrated_beta(beta)
+        cal_res = self._session.calibration_result
+        self._config_panel.set_calibrated_beta(beta, cal_res)
+        if cal_res is not None:
+            self._lbl_frozen_beta.setText(
+                f"β: {format_number_br(beta, 4)} "
+                f"(R₀ Newman: {format_number_br(cal_res.newman_r0, 2)})"
+            )
+        else:
+            self._lbl_frozen_beta.setText(f"β: {format_number_br(beta, 4)}")
 
     def _on_config_changed(self, config: SimulationConfig) -> None:
         if not self._session.is_started:
+            self._ensure_world_for_config(config)
             self._session.configure(config)
 
     def _on_start_simulation(self, config: SimulationConfig, patient_zero: Any) -> None:
@@ -1022,11 +1100,13 @@ class MainWindow(QMainWindow):
                 self._sim_thread.wait(1000)
 
             self._is_real_flow = False
+            self._ensure_world_for_config(config)
             self._session.reset()
             self._session.configure(config)
 
             # Atualiza resumo dos parâmetros congelados na Tela 5
             self._lbl_frozen_r0.setText(f"R₀: {format_number_br(config.r0, 1)}")
+            self._lbl_frozen_beta.setText("β: Calibrando...")
             self._lbl_frozen_gamma.setText(f"γ: {format_number_br(config.exit_rate_gamma, 2)}")
             self._lbl_frozen_mortality.setText(
                 f"Mortalidade: {format_percent_br(config.mortality, 1)}"
@@ -1037,10 +1117,15 @@ class MainWindow(QMainWindow):
             self._lbl_frozen_interv.setText(
                 f"Intervenção: {config.intervention_level.capitalize()}"
             )
-            self._lbl_frozen_scenario.setText(f"Cenário: {config.scenario.capitalize()}")
+            self._lbl_frozen_scenario.setText(f"Cenário: {config.scenario}")
             self._lbl_frozen_seed.setText(f"Semente: {config.seed}")
             if config.patient_zero:
-                self._lbl_frozen_pz.setText(f"Paciente zero: #{config.patient_zero[0]}")
+                v0 = config.patient_zero[0]
+                if 0 <= v0 < len(self._world.vertex_country):
+                    c_iso = self._world.country_of_vertex(v0)
+                    self._lbl_frozen_pz.setText(f"Paciente zero: #{v0} ({c_iso})")
+                else:
+                    self._lbl_frozen_pz.setText(f"Paciente zero: #{v0}")
             else:
                 self._lbl_frozen_pz.setText("Paciente zero: Aleatório")
 

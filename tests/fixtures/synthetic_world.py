@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from epidemia.world import CountryInput, RouteInput, World, build_world
+from epidemia.world import (
+    CountryInput,
+    RouteInput,
+    World,
+    create_fallback_countries,
+    create_fallback_routes,
+    create_fallback_world,
+)
 
 
 def square_geojson(lon0: float, lat0: float, size: float = 6.0) -> dict[str, Any]:
@@ -20,23 +27,12 @@ def square_geojson(lon0: float, lat0: float, size: float = 6.0) -> dict[str, Any
 
 def create_synthetic_countries() -> list[CountryInput]:
     """Retorna 5 países sintéticos para testes."""
-    return [
-        CountryInput("BRA", "Brasil", 215_000_000, square_geojson(-50.0, -15.0, 8.0)),
-        CountryInput("GIN", "Guiné", 13_500_000, square_geojson(-12.0, 9.0, 4.0)),
-        CountryInput("LBR", "Libéria", 5_200_000, square_geojson(-10.0, 5.0, 4.0)),
-        CountryInput("SLE", "Serra Leoa", 8_400_000, square_geojson(-13.0, 7.0, 4.0)),
-        CountryInput("TUV", "Tuvalu", 11_000, square_geojson(178.0, -8.0, 3.0)),
-    ]
+    return create_fallback_countries()
 
 
 def create_synthetic_routes() -> list[RouteInput]:
     """Retorna rotas sintéticas entre os países."""
-    return [
-        RouteInput("BRA", "GIN", 15),
-        RouteInput("GIN", "LBR", 6),
-        RouteInput("LBR", "SLE", 10),
-        RouteInput("SLE", "BRA", 4),
-    ]
+    return create_fallback_routes()
 
 
 def create_synthetic_world(
@@ -44,12 +40,4 @@ def create_synthetic_world(
     seed: int = 42,
 ) -> World:
     """Cria e retorna uma instância de World sintético para testes."""
-    countries = create_synthetic_countries()
-    routes = create_synthetic_routes()
-    return build_world(
-        countries=countries,
-        routes=routes,
-        seed=seed,
-        total_vertices=total_vertices,
-        min_vertices=12,
-    )
+    return create_fallback_world(total_vertices=total_vertices, seed=seed)

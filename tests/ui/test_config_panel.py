@@ -31,12 +31,18 @@ def test_config_panel_layout_tres_colunas():
     assert panel._spin_mortality is not None
     assert panel._spin_incubation is not None
 
-    # Coluna 2: Intervenção e cards
+    # Coluna 2: Intervenção e cards (valores reais da INTERVENTION_TABLE do M3)
     assert panel._card_baixo is not None
     assert panel._card_medio is not None
     assert panel._card_alto is not None
     assert panel._card_baixo._is_active is True
     assert panel._card_medio._is_active is False
+    assert "5% de isolamento / 7 dias" in panel._card_baixo._lbl_isolation.text()
+    assert "dia 180" in panel._card_baixo._lbl_vaccination.text()
+    assert "15% de isolamento / 10 dias" in panel._card_medio._lbl_isolation.text()
+    assert "dia 120" in panel._card_medio._lbl_vaccination.text()
+    assert "30% de isolamento / 14 dias" in panel._card_alto._lbl_isolation.text()
+    assert "dia 60" in panel._card_alto._lbl_vaccination.text()
 
     # Seleção de outro nível via card
     panel._card_alto.mousePressEvent(None)
@@ -112,3 +118,32 @@ def test_config_panel_get_and_apply_custom_config():
     assert round(obtained.incubation_days, 1) == 5.0
     assert obtained.intervention_level == "medio"
     assert obtained.patient_zero == (10,)
+
+
+def test_config_panel_set_world_real_countries_and_deterministic_pz():
+    """Verifica que set_world vincula o paciente zero aos vértices reais do país selecionado."""
+    from epidemia.world import create_fallback_world
+
+    _get_qapp()
+    world = create_fallback_world(total_vertices=100, seed=42)
+    panel = ConfigPanel(world=world)
+
+    # Deve conter exatamente os países do objeto World
+    assert panel._combo_pz_country.count() == len(world.country_codes)
+
+    # Ativa modo manual e seleciona Serra Leoa (SLE)
+    panel._combo_pz_mode.setCurrentIndex(1)
+    idx_sle = panel._combo_pz_country.findData("SLE")
+    assert idx_sle >= 0
+    panel._combo_pz_country.setCurrentIndex(idx_sle)
+
+    cfg1 = panel.get_simulation_config()
+    assert cfg1.patient_zero is not None
+    v_sle = cfg1.patient_zero[0]
+    assert world.country_of_vertex(v_sle) == "SLE"
+
+    # Sortear vértice dentro do país mantém o vértice pertencente a SLE
+    panel._btn_pick_random_vertex.click()
+    cfg2 = panel.get_simulation_config()
+    assert cfg2.patient_zero is not None
+    assert world.country_of_vertex(cfg2.patient_zero[0]) == "SLE"

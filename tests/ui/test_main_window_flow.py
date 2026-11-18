@@ -74,3 +74,27 @@ def test_main_window_flow_navigation(monkeypatch):
     assert "não encontrado em data/processed" in win._lbl_real_status.text()
 
     win.close()
+
+
+def test_main_window_world_cache_rebuilds_on_scenario_and_seed_change(monkeypatch):
+    """Verifica que mudar semente ou cenário Regional reconstrói o World via WorldCache (M1)."""
+    from epidemia.core.epidemic.parameters import SimulationConfig
+
+    _get_qapp()
+    monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
+
+    win = MainWindow(world=None)
+    assert win._world.scenario == "global"
+    assert win._world.seed == 42
+
+    cfg_regional = SimulationConfig(seed=77, scenario="regional_ebola", r0=2.2)
+    win._ensure_world_for_config(cfg_regional)
+
+    assert win._world.scenario == "regional_ebola"
+    assert win._world.seed == 77
+    assert len(win._world_cache) >= 2
+    # Países fora do foco regional (ex: BRA, TUV) ficam fixados no piso n_min = 12
+    assert len(win._world.country_vertices["BRA"]) == 12
+    assert len(win._world.country_vertices["TUV"]) == 12
+    win.close()

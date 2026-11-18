@@ -13,6 +13,9 @@ from epidemia.world.builder import (
     INTERNAL_EDGE_WEIGHT,
     WorldCache,
     build_world,
+    create_fallback_countries,
+    create_fallback_routes,
+    create_fallback_world,
     route_edge_multiplicity,
 )
 from epidemia.world.geometry import (
@@ -66,6 +69,9 @@ __all__ = [
     "build_country_geometry",
     "build_world",
     "connection_radius",
+    "create_fallback_countries",
+    "create_fallback_routes",
+    "create_fallback_world",
     "detect_regional_focus_countries",
     "effective_average_degree",
     "extract_polygons_from_geojson",
