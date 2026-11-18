@@ -140,9 +140,7 @@ class SimulationSession:
                 "Chame reset() antes de reconfigurar."
             )
         if not isinstance(config, SimulationConfig):
-            raise ParameterOutOfRangeError(
-                "config deve ser uma instância de SimulationConfig."
-            )
+            raise ParameterOutOfRangeError("config deve ser uma instância de SimulationConfig.")
         self._config = config
         self._seeds = SeedBook(config.seed)
         self._calibrated_beta = None

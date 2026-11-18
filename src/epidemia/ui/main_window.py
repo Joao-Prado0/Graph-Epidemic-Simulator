@@ -40,6 +40,7 @@ from epidemia.app.panel_metrics import (
     compute_epidemic_summary_from_timeline,
     compute_network_analysis,
     compute_shortest_epidemic_path,
+    inspect_vertex_metrics,
 )
 from epidemia.app.playback import PlaybackController
 from epidemia.app.real_session import RealSession
@@ -483,9 +484,11 @@ class MainWindow(QMainWindow):
         # Stack central contendo o Mapa e o Gráfico da Tela 7
         self._center_stack = QStackedWidget()
 
-        # Vista 0: Mapa QPainter
+        # Vista 0: Mapa QPainter (barra interna oculta pois Tela 5 tem toolbar própria)
         self._map_view = MapView()
+        self._map_view.set_toolbar_visible(False)
         self._map_view.set_world(self._world)
+        self._map_view.vertex_clicked.connect(self._on_map_vertex_clicked)
         btn_zin.clicked.connect(self._map_view._on_zoom_in_clicked)
         btn_zout.clicked.connect(self._map_view._on_zoom_out_clicked)
         btn_fit.clicked.connect(self._map_view._on_fit_clicked)
@@ -597,7 +600,11 @@ class MainWindow(QMainWindow):
         self._btn_calc_net.clicked.connect(self._on_calc_network_clicked)
         net_layout.addWidget(self._btn_calc_net)
 
-        self._lbl_net_vertices = QLabel("Vértices no grafo: --")
+        n_iso = len(self._world.isolated_countries)
+        self._lbl_net_vertices = QLabel(
+            f"Vértices no grafo: {format_number_br(self._world.graph.num_vertices)}"
+        )
+        self._lbl_net_isolated = QLabel(f"Países sem rota aérea (D16): {n_iso}")
         self._lbl_net_components = QLabel("Componentes conexas (M1): --")
         self._lbl_net_tarjan = QLabel("Pontes / articulações (M2): --")
         self._lbl_net_deg_avg = QLabel("Grau médio: --")
@@ -605,9 +612,11 @@ class MainWindow(QMainWindow):
         self._lbl_net_betweenness = QLabel("Top intermediação: --")
         self._lbl_net_clustering = QLabel("Agrupamento médio: --")
         self._lbl_net_communities = QLabel("Comunidades (países): --")
+        self._lbl_net_inspected = QLabel("Inspeção (RF26): clique em um nó no mapa")
 
         for lbl in (
             self._lbl_net_vertices,
+            self._lbl_net_isolated,
             self._lbl_net_components,
             self._lbl_net_tarjan,
             self._lbl_net_deg_avg,
@@ -615,6 +624,7 @@ class MainWindow(QMainWindow):
             self._lbl_net_betweenness,
             self._lbl_net_clustering,
             self._lbl_net_communities,
+            self._lbl_net_inspected,
         ):
             lbl.setWordWrap(True)
             lbl.setStyleSheet(f"font-size: 11px; color: {TEXT_SECONDARY_HEX};")
@@ -832,6 +842,13 @@ class MainWindow(QMainWindow):
         lbl_map_hdr = QLabel("Incidência por 100 mil hab. (A12)")
         lbl_map_hdr.setStyleSheet(f"font-weight: bold; color: {TEXT_PRIMARY_HEX};")
         r_toolbar.addWidget(lbl_map_hdr)
+
+        self._btn_real_toggle_view = QPushButton("Ver curvas (RF12)")
+        self._btn_real_toggle_view.setObjectName("btnSecondary")
+        self._btn_real_toggle_view.setFixedHeight(28)
+        self._btn_real_toggle_view.clicked.connect(self._on_toggle_real_center_view)
+        r_toolbar.addWidget(self._btn_real_toggle_view)
+
         r_toolbar.addStretch(1)
 
         scale_items = [
@@ -853,9 +870,18 @@ class MainWindow(QMainWindow):
 
         c_layout.addLayout(r_toolbar)
 
+        self._real_center_stack = QStackedWidget()
+
         self._real_map_view = MapView()
         self._real_map_view.set_world(self._world)
-        c_layout.addWidget(self._real_map_view, stretch=1)
+        self._real_map_view.vertex_clicked.connect(self._on_map_vertex_clicked)
+        self._real_center_stack.addWidget(self._real_map_view)
+
+        self._real_charts_view = ChartsView()
+        self._real_charts_view.back_to_map_requested.connect(self._on_back_to_real_map_clicked)
+        self._real_center_stack.addWidget(self._real_charts_view)
+
+        c_layout.addWidget(self._real_center_stack, stretch=1)
 
         # Player da Pandemia Real
         self._real_player_bar = PlayerBar(self._playback)
@@ -930,6 +956,38 @@ class MainWindow(QMainWindow):
         self._center_stack.setCurrentIndex(0)
         self._btn_toggle_view.setText("Ver curvas (Tela 7)")
 
+    def _on_toggle_real_center_view(self) -> None:
+        if self._real_center_stack.currentIndex() == 0:
+            self._real_center_stack.setCurrentIndex(1)
+            self._btn_real_toggle_view.setText("Ver mapa")
+        else:
+            self._real_center_stack.setCurrentIndex(0)
+            self._btn_real_toggle_view.setText("Ver curvas (RF12)")
+
+    def _on_back_to_real_map_clicked(self) -> None:
+        self._real_center_stack.setCurrentIndex(0)
+        self._btn_real_toggle_view.setText("Ver curvas (RF12)")
+
+    def _on_map_vertex_clicked(self, vertex_id: int) -> None:
+        """Atualiza o painel com as métricas locais do vértice clicado no mapa (RF26)."""
+        try:
+            v_bytes = None if self._is_real_flow else self._playback.current_vertex_states()
+            info = inspect_vertex_metrics(self._world, vertex_id, v_bytes)
+            flags: list[str] = []
+            if info.is_isolated:
+                flags.append("isolado")
+            if info.is_vaccinated:
+                flags.append("vacinado")
+            flags_str = f" [{', '.join(flags)}]" if flags else ""
+            text = (
+                f"Nó #{info.vertex_id} ({info.iso3}): estado {info.state_name}{flags_str} · "
+                f"grau k={info.degree} · C={format_number_br(info.local_clustering, 3)}"
+            )
+            self._lbl_net_inspected.setText(text)
+            self.statusBar().showMessage(f"Inspeção RF26 — {text}", 6000)
+        except EpidemiaError:
+            pass
+
     def _on_load_config_from_start_screen(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
             self,
@@ -989,6 +1047,7 @@ class MainWindow(QMainWindow):
             self._real_player_bar.update_state()
 
             self._charts_view.update_timeline_data(timeline, current_day=0)
+            self._real_charts_view.update_timeline_data(timeline, current_day=0)
             self._update_map_for_current_day()
             self._update_epidemic_summary()
 
@@ -1019,15 +1078,27 @@ class MainWindow(QMainWindow):
             self.show_error_dialog("Erro ao Carregar Pandemia", str(exc))
 
     def _on_unload_pandemic_clicked(self) -> None:
-        """Descarrega a pandemia real e retorna à Tela 8 de seleção."""
+        """Descarrega a pandemia real e retorna à Tela 8, preservando a simulação se ativa."""
         self._is_real_flow = False
-        self._playback.detach_timeline()
-        self._charts_view.clear()
-        self._map_view.set_day_data(None, None, is_real_flow=False)
+        self._real_session.reset()
+        self._real_charts_view.clear()
         self._real_map_view.set_day_data(None, None, is_real_flow=False)
-        self._player_bar.update_state()
-        self._real_player_bar.update_state()
-        self._reset_epidemic_summary_labels()
+
+        if self._session.is_started and self._session.timeline().days_available > 0:
+            sim_tl = self._session.timeline()
+            self._playback.attach_timeline(sim_tl)
+            self._charts_view.update_timeline_data(sim_tl, current_day=self._playback.current_day)
+            self._player_bar.update_state()
+            self._real_player_bar.update_state()
+            self._update_map_for_current_day()
+            self._update_epidemic_summary()
+        else:
+            self._playback.detach_timeline()
+            self._charts_view.clear()
+            self._map_view.set_day_data(None, None, is_real_flow=False)
+            self._player_bar.update_state()
+            self._real_player_bar.update_state()
+            self._reset_epidemic_summary_labels()
 
         self._lbl_real_status.setText("Pandemia real descarregada. Pronto para seleção.")
         self._lbl_real_status.setStyleSheet("color: #78909c;")
@@ -1067,6 +1138,12 @@ class MainWindow(QMainWindow):
         self._real_map_view.set_world(self._world)
         self._config_panel.set_world(self._world)
         self._populate_path_combos()
+        self._lbl_net_vertices.setText(
+            f"Vértices no grafo: {format_number_br(self._world.graph.num_vertices)}"
+        )
+        self._lbl_net_isolated.setText(
+            f"Países sem rota aérea (D16): {len(self._world.isolated_countries)}"
+        )
 
     def _on_calibrate_beta(self, config: SimulationConfig) -> None:
         try:
@@ -1142,19 +1219,24 @@ class MainWindow(QMainWindow):
         timeline = self._session.timeline()
         if self._playback.timeline != timeline:
             self._playback.attach_timeline(timeline)
+            self._playback.play()
+
+        if day == 0 or (
+            self._playback.is_playing
+            and (self._playback.is_at_end or self._playback.current_day == day - 1)
+        ):
+            self._playback.set_day(day)
+            self._update_map_for_current_day()
 
         self._player_bar.update_state()
         self._charts_view.update_timeline_data(timeline, current_day=self._playback.current_day)
-
-        if self._playback.is_at_end or self._playback.current_day == day - 1:
-            self._playback.set_day(day)
-            self._player_bar.update_state()
-            self._update_map_for_current_day()
-
         self._update_epidemic_summary()
 
     def _on_simulation_finished(self) -> None:
         self._config_panel.set_running_state(False)
+        if self._playback.is_at_end and not self._player_bar._timer.isActive():
+            self._playback.pause()
+            self._player_bar.update_state()
         self._update_epidemic_summary()
 
     def _on_thread_error(self, message: str) -> None:
@@ -1164,6 +1246,23 @@ class MainWindow(QMainWindow):
     def _on_playback_day_changed(self, day: int) -> None:
         self._update_map_for_current_day()
         self._charts_view.set_current_day(day)
+        self._real_charts_view.set_current_day(day)
+        self._update_active_cases_for_current_day()
+
+    def _update_active_cases_for_current_day(self) -> None:
+        """Atualiza o indicador grande 'Casos ativos no dia' para o dia atual do player."""
+        tl = self._playback.timeline
+        day = self._playback.current_day
+        if tl is None or not (0 <= day < tl.days_available):
+            return
+        if hasattr(tl, "compartment_counts") and not self._is_real_flow:
+            counts = tl.compartment_counts(day)  # type: ignore[attr-defined]
+            self._lbl_res_active_big.setText(format_number_br(counts.infected))
+        else:
+            c_counts = self._playback.current_country_counts()
+            if c_counts:
+                tot_act = sum(c.infected for c in c_counts)
+                self._lbl_res_active_big.setText(format_number_br(tot_act))
 
     def _update_map_for_current_day(self) -> None:
         if self._is_real_flow:
@@ -1171,9 +1270,9 @@ class MainWindow(QMainWindow):
             self._map_view.set_day_data(None, counts, is_real_flow=True)
             self._real_map_view.set_day_data(None, counts, is_real_flow=True)
 
-            # Atualiza totais da Tela 9
+            # Atualiza totais acumulados da Tela 9 (usa cumulative_cases = I + R_nat + D)
             if counts:
-                tot_c = sum(c.infected for c in counts)
+                tot_c = sum(c.cumulative_cases for c in counts)
                 tot_d = sum(c.deceased for c in counts)
                 tot_r = sum(c.recovered for c in counts)
                 self._lbl_real_cases_tot.setText(f"Casos acumulados: {format_number_br(tot_c)}")
@@ -1204,7 +1303,7 @@ class MainWindow(QMainWindow):
 
         summary = compute_epidemic_summary_from_timeline(timeline, cfg)
 
-        self._lbl_res_active_big.setText(format_number_br(summary.peak_active_cases))
+        self._update_active_cases_for_current_day()
         self._lbl_res_peak_active.setText(
             f"Pico de ativos: {format_number_br(summary.peak_active_cases)}"
         )

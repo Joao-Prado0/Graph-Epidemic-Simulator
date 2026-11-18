@@ -144,9 +144,7 @@ class StartScreen(QWidget):
         header_layout.addWidget(lbl_top)
 
         lbl_title = QLabel("Simulador de Epidemias em Redes")
-        lbl_title.setStyleSheet(
-            f"color: {TEXT_PRIMARY_HEX}; font-size: 32px; font-weight: bold;"
-        )
+        lbl_title.setStyleSheet(f"color: {TEXT_PRIMARY_HEX}; font-size: 32px; font-weight: bold;")
         lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_layout.addWidget(lbl_title)
 
@@ -230,9 +228,7 @@ class StartScreen(QWidget):
             "Configure a doença e assista à propagação.\n"
             "Ajuste parâmetros e observe a dinâmica da rede."
         )
-        lbl_desc.setStyleSheet(
-            f"color: {TEXT_SECONDARY_HEX}; font-size: 13px; border: none;"
-        )
+        lbl_desc.setStyleSheet(f"color: {TEXT_SECONDARY_HEX}; font-size: 13px; border: none;")
         layout.addWidget(lbl_desc)
 
         layout.addStretch(1)
@@ -280,9 +276,7 @@ class StartScreen(QWidget):
             "Reproduza surtos históricos sobre o mesmo mapa.\n"
             "Compare trajetórias e intervenções no tempo."
         )
-        lbl_desc.setStyleSheet(
-            f"color: {TEXT_SECONDARY_HEX}; font-size: 13px; border: none;"
-        )
+        lbl_desc.setStyleSheet(f"color: {TEXT_SECONDARY_HEX}; font-size: 13px; border: none;")
         layout.addWidget(lbl_desc)
 
         layout.addStretch(1)

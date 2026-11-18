@@ -167,6 +167,10 @@ class SimulationTimeline:
         """Bytes dos vértices no dia."""
         return self._buffer.vertex_states(day)
 
+    def compartment_counts(self, day: int) -> CompartmentCounts:
+        """Contagens globais pré-calculadas pelo StateBuffer no dia. Complexidade: O(1)."""
+        return self._buffer.compartment_counts(day)
+
     def country_counts(self, day: int) -> tuple[CountryCounts, ...]:
         """Contagens por país no dia. O(V) na primeira consulta e O(1) no cache."""
         if self._cache_generation != self._buffer.generation:

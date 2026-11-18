@@ -98,3 +98,35 @@ def test_main_window_world_cache_rebuilds_on_scenario_and_seed_change(monkeypatc
     assert len(win._world.country_vertices["BRA"]) == 12
     assert len(win._world.country_vertices["TUV"]) == 12
     win.close()
+
+
+def test_main_window_vertex_inspection_and_pause_sync(monkeypatch):
+    """Verifica inspeção de vértice (RF18/RF26) e respeito à pausa durante gravação."""
+    from epidemia.core.epidemic.parameters import SimulationConfig
+
+    _get_qapp()
+    monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
+
+    world = create_synthetic_world(total_vertices=60, seed=42)
+    win = MainWindow(world=world)
+
+    win._session.configure(SimulationConfig(seed=42, max_days=10))
+    win._session.start(patient_zero=[0])
+    win._on_day_recorded(0)
+    assert win._playback.current_day == 0
+    assert win._playback.is_playing is True
+
+    # Inspeciona o vértice 0 por clique no mapa (RF26)
+    win._on_map_vertex_clicked(0)
+    assert "Nó #0" in win._lbl_net_inspected.text()
+    assert "k=" in win._lbl_net_inspected.text()
+    assert "C=" in win._lbl_net_inspected.text()
+
+    # Pausa a reprodução no dia 0; novos dias gravados pela thread não devem avançar o dia atual
+    win._playback.pause()
+    win._session.run_day()
+    win._on_day_recorded(1)
+    assert win._playback.current_day == 0
+    assert win._playback.days_available == 2
+    win.close()

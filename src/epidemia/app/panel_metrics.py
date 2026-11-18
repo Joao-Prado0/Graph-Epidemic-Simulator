@@ -141,10 +141,17 @@ def compute_epidemic_summary_from_timeline(
     active_infected: list[int] = []
     exposed: list[int] = []
 
+    has_fast_counts = hasattr(timeline, "compartment_counts")
     has_vertex_states = timeline.vertex_states(0) is not None
 
     for d in range(n_days):
-        if has_vertex_states:
+        if has_fast_counts:
+            counts = timeline.compartment_counts(d)  # type: ignore[attr-defined]
+            cum_cases.append(counts.cumulative_cases)
+            deaths.append(counts.deceased)
+            active_infected.append(counts.infected)
+            exposed.append(counts.exposed)
+        elif has_vertex_states:
             v_bytes = timeline.vertex_states(d)
             assert v_bytes is not None
             counts = extract_compartment_counts(v_bytes)

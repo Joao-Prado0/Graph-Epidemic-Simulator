@@ -8,9 +8,10 @@ arraste (pan), botão de ajuste automático e tooltip ao passar o mouse.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -18,6 +19,7 @@ from PySide6.QtGui import (
     QPainter,
     QPainterPath,
     QPen,
+    QPolygonF,
     QTransform,
     QWheelEvent,
 )
@@ -29,25 +31,62 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from epidemia.app.panel_metrics import inspect_vertex_metrics
+from epidemia.core.timeline.protocol import (
+    FLAG_ISOLATED,
+    FLAG_VACCINATED,
+    STATE_MASK,
+    STATE_R,
+)
 from epidemia.ui.styles import (
     COLOR_HEX_ISOLATED,
+    COLOR_ISOLATED,
+    COLOR_RECOVERED_VAC,
     STATE_COLORS,
     VERTEX_HIDE_THRESHOLD_PX,
+    VERTEX_MARKER_RADIUS,
     VERTEX_SHOW_THRESHOLD_PX,
     color_for_real_cases_per_100k,
+    format_number_br,
 )
 
 if TYPE_CHECKING:
     from epidemia.core.timeline.protocol import CountryCounts
+    from epidemia.world.geometry import CountryGeometry
     from epidemia.world.world import World
 
-# Máscara para extrair bits 0..2 do estado
-STATE_MASK = 0b0000_0111
-FLAG_ISOLATED = 1 << 3
+
+def _compute_country_deg_width(geom: CountryGeometry, bbox: QRectF) -> float:
+    """Calcula a largura efetiva em graus de longitude tratando o antimeridiano (D15)."""
+    if not geom.polygons:
+        return max(0.5, bbox.width())
+
+    part_widths: list[float] = []
+    for exterior, _holes in geom.polygons:
+        if not exterior:
+            continue
+        xs = [float(pt[0]) for pt in exterior]
+        w = max(xs) - min(xs)
+        if w > 180.0:
+            xs_shifted = [x + 360.0 if x < 0.0 else x for x in xs]
+            w = max(xs_shifted) - min(xs_shifted)
+        part_widths.append(w)
+
+    if not part_widths:
+        return max(0.5, bbox.width())
+
+    if bbox.width() > 180.0:
+        # País dividido no antimeridiano (D15): soma as partes divididas
+        return max(0.5, min(180.0, sum(part_widths)))
+
+    # Para países com territórios ultramarinos distantes (ex: FRA), usa a parte principal
+    return max(0.5, max(part_widths))
 
 
 class MapCanvas(QWidget):
-    """Área gráfica que desenha o mapa com QPainter."""
+    """Área gráfica que desenha o mapa com QPainter em lote."""
+
+    vertex_clicked = Signal(int)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -57,6 +96,7 @@ class MapCanvas(QWidget):
         self._world: World | None = None
         self._vertex_bytes: bytes | None = None
         self._country_counts: Sequence[CountryCounts] | None = None
+        self._country_counts_map: dict[str, CountryCounts] = {}
         self._is_real_flow: bool = False
 
         # Geometrias pré-calculadas: iso3 -> QPainterPath
@@ -72,8 +112,9 @@ class MapCanvas(QWidget):
         self._center_lon: float = 0.0
         self._center_lat: float = 0.0
 
-        # Controle de arraste com o mouse
+        # Controle de arraste e clique com o mouse
         self._is_dragging: bool = False
+        self._press_mouse_pos = QPointF(0, 0)
         self._last_mouse_pos = QPointF(0, 0)
 
     def set_world(self, world: World | None) -> None:
@@ -114,7 +155,7 @@ class MapCanvas(QWidget):
             bbox = path.boundingRect()
             self._country_paths[iso3] = path
             self._country_bboxes[iso3] = bbox
-            self._country_deg_widths[iso3] = max(0.5, bbox.width())
+            self._country_deg_widths[iso3] = _compute_country_deg_width(geom, bbox)
             self._country_visible_nodes[iso3] = False
 
             if bbox.width() > 0 and bbox.height() > 0:
@@ -141,6 +182,10 @@ class MapCanvas(QWidget):
         """Atualiza os dados de estado para renderização do dia."""
         self._vertex_bytes = vertex_bytes
         self._country_counts = country_counts
+        if country_counts is not None:
+            self._country_counts_map = {c.iso3: c for c in country_counts}
+        else:
+            self._country_counts_map = {}
         self._is_real_flow = is_real_flow
         self.update()
 
@@ -183,8 +228,27 @@ class MapCanvas(QWidget):
         return transform
 
     def _calculate_dominant_status_color(self, iso3: str) -> QColor:
-        """Determina a cor do país pelo status epidemiológico dominante."""
-        if self._world is None or self._vertex_bytes is None:
+        """Determina a cor do país pelo status dominante de CountryCounts (M3)."""
+        if self._world is None:
+            return QColor("#2b2d31")
+
+        c_info = self._country_counts_map.get(iso3)
+        if c_info is not None:
+            max_comp = max(
+                c_info.susceptible,
+                c_info.exposed,
+                c_info.infected,
+                c_info.total_recovered,
+                c_info.deceased,
+            )
+            if c_info.isolated > 0 and c_info.isolated >= max_comp:
+                return COLOR_ISOLATED
+            dom = c_info.dominant_state
+            if dom == STATE_R and c_info.recovered_vaccinated > c_info.recovered_natural:
+                return COLOR_RECOVERED_VAC
+            return STATE_COLORS.get(dom, QColor("#2b2d31"))
+
+        if self._vertex_bytes is None:
             return QColor("#2b2d31")
 
         verts = self._world.country_vertices.get(iso3, [])
@@ -192,12 +256,18 @@ class MapCanvas(QWidget):
             return QColor("#2b2d31")
 
         state_counts: dict[int, int] = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
+        iso_count = 0
         for u in verts:
             if u < len(self._vertex_bytes):
-                st = self._vertex_bytes[u] & STATE_MASK
+                b = self._vertex_bytes[u]
+                if b & FLAG_ISOLATED:
+                    iso_count += 1
+                st = b & STATE_MASK
                 state_counts[st] = state_counts.get(st, 0) + 1
 
-        # Ordem de prioridade no empate: I > E > D > R > S
+        if iso_count > 0 and iso_count >= max(state_counts.values()):
+            return COLOR_ISOLATED
+
         priority = (2, 1, 4, 3, 0)
         dominant_st = max(priority, key=lambda s: (state_counts.get(s, 0), -priority.index(s)))
         return STATE_COLORS.get(dominant_st, QColor("#2b2d31"))
@@ -207,7 +277,7 @@ class MapCanvas(QWidget):
         if self._country_counts is None or self._world is None:
             return QColor("#2b2d31")
 
-        c_info = next((c for c in self._country_counts if c.iso3 == iso3), None)
+        c_info = self._country_counts_map.get(iso3)
         if c_info is None or c_info.cases <= 0:
             return QColor("#202225")
 
@@ -233,18 +303,20 @@ class MapCanvas(QWidget):
         # 1. Renderização dos polígonos dos países
         outline_pen = QPen(QColor("#4a5568"), 1.0 / self._zoom)
         outline_pen.setCosmetic(True)
+        country_fill_colors: dict[str, QColor] = {}
 
         for iso3, path in self._country_paths.items():
             if self._is_real_flow:
                 fill_color = self._calculate_real_flow_color(iso3)
             else:
                 fill_color = self._calculate_dominant_status_color(iso3)
+            country_fill_colors[iso3] = fill_color
 
             painter.setPen(outline_pen)
             painter.setBrush(QBrush(fill_color))
             painter.drawPath(path)
 
-            # Atualização da histerese de nós
+            # Atualização da histerese de nós (40 px entrada / 36 px saída)
             deg_w = self._country_deg_widths.get(iso3, 1.0)
             screen_width_px = deg_w * self._zoom
             currently_visible = self._country_visible_nodes.get(iso3, False)
@@ -254,31 +326,69 @@ class MapCanvas(QWidget):
             elif currently_visible and screen_width_px < VERTEX_HIDE_THRESHOLD_PX:
                 self._country_visible_nodes[iso3] = False
 
-        # 2. Renderização dos nós individuais (apenas nos países que passam o limiar)
-        if not self._is_real_flow and self._vertex_bytes is not None:
-            node_r = 1.5 / self._zoom  # Raio do marcador no sistema transformado
-            pen_node = QPen(Qt.PenStyle.NoPen)
-            painter.setPen(pen_node)
+        # 2. Renderização dos vértices em lote com drawPoints (Arquitetura 4.1, RNF02)
+        point_diam_px = max(3.0, VERTEX_MARKER_RADIUS * 1.4)
+        positions = self._world.vertex_positions
+
+        if self._is_real_flow:
+            # Arquitetura 4.1: no fluxo real, os vértices recebem a cor do polígono do país
+            for iso3, is_vis in self._country_visible_nodes.items():
+                if not is_vis:
+                    continue
+                verts = self._world.country_vertices.get(iso3, [])
+                if not verts:
+                    continue
+                poly_pts = QPolygonF(
+                    [QPointF(positions[u].x, positions[u].y) for u in verts if u < len(positions)]
+                )
+                base_col = country_fill_colors.get(iso3, QColor("#4a5568"))
+                pen = QPen(base_col.lighter(135), point_diam_px)
+                pen.setCosmetic(True)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                painter.setPen(pen)
+                painter.drawPoints(poly_pts)
+        elif self._vertex_bytes is not None:
+            v_bytes = self._vertex_bytes
+            n_bytes = len(v_bytes)
+            batches: dict[int, QPolygonF] = {}
+            color_table: dict[int, QColor] = {
+                0: STATE_COLORS[0],
+                1: STATE_COLORS[1],
+                2: STATE_COLORS[2],
+                3: STATE_COLORS[3],
+                4: STATE_COLORS[4],
+                5: COLOR_RECOVERED_VAC,
+                6: QColor(COLOR_HEX_ISOLATED),
+            }
 
             for iso3, is_vis in self._country_visible_nodes.items():
                 if not is_vis:
                     continue
-
                 verts = self._world.country_vertices.get(iso3, [])
                 for u in verts:
-                    if u >= len(self._world.vertex_positions):
+                    if u >= len(positions):
                         continue
-                    pt = self._world.vertex_positions[u]
-                    b = self._vertex_bytes[u] if u < len(self._vertex_bytes) else 0
-
+                    pt = positions[u]
+                    b = v_bytes[u] if u < n_bytes else 0
                     if b & FLAG_ISOLATED:
-                        color = QColor(COLOR_HEX_ISOLATED)
+                        key = 6
+                    elif (b & STATE_MASK) == STATE_R and (b & FLAG_VACCINATED):
+                        key = 5
                     else:
-                        st = b & STATE_MASK
-                        color = STATE_COLORS.get(st, QColor("#ffffff"))
+                        key = b & STATE_MASK
 
-                    painter.setBrush(QBrush(color))
-                    painter.drawEllipse(QPointF(pt.x, pt.y), node_r, node_r)
+                    poly_group = batches.get(key)
+                    if poly_group is None:
+                        poly_group = QPolygonF()
+                        batches[key] = poly_group
+                    poly_group.append(QPointF(pt.x, pt.y))
+
+            for key, poly_group in batches.items():
+                pen = QPen(color_table.get(key, QColor("#ffffff")), point_diam_px)
+                pen.setCosmetic(True)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                painter.setPen(pen)
+                painter.drawPoints(poly_group)
 
     def wheelEvent(self, event: QWheelEvent) -> None:
         """Zoom com a roda do mouse centrado no ponteiro."""
@@ -291,6 +401,7 @@ class MapCanvas(QWidget):
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._is_dragging = True
+            self._press_mouse_pos = event.position()
             self._last_mouse_pos = event.position()
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
@@ -305,7 +416,78 @@ class MapCanvas(QWidget):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
+            was_dragging = self._is_dragging
             self._is_dragging = False
+            drag_dist = (event.position() - self._press_mouse_pos).manhattanLength()
+            if was_dragging and drag_dist <= 5.0:
+                self._handle_click_inspection(event.position())
+
+    def _find_nearest_vertex(self, geo_pos: QPointF, max_px_radius: float = 10.0) -> int | None:
+        """Localiza o vértice mais próximo da coordenada clicada (RF26)."""
+        if self._world is None:
+            return None
+        max_deg_dist = max_px_radius / max(0.2, self._zoom)
+        max_deg_sq = max_deg_dist * max_deg_dist
+        best_u: int | None = None
+        best_d2 = max_deg_sq
+
+        gx = geo_pos.x()
+        gy = geo_pos.y()
+        positions = self._world.vertex_positions
+
+        for iso3, path in self._country_paths.items():
+            if not path.contains(geo_pos) and not self._country_visible_nodes.get(iso3, False):
+                continue
+            for u in self._world.country_vertices.get(iso3, ()):
+                if u >= len(positions):
+                    continue
+                dx = positions[u].x - gx
+                dy = positions[u].y - gy
+                d2 = dx * dx + dy * dy
+                if d2 <= best_d2:
+                    best_d2 = d2
+                    best_u = u
+
+        if best_u is not None:
+            return best_u
+
+        # Se clicou dentro de um país sem acertar em cima do marcador, retorna o 1º nó do país
+        for iso3, path in self._country_paths.items():
+            if path.contains(geo_pos):
+                verts = self._world.country_vertices.get(iso3, ())
+                if verts:
+                    return verts[0]
+        return None
+
+    def _handle_click_inspection(self, pos: QPointF) -> None:
+        """Inspeciona o vértice clicado e emite sinal vertex_clicked (RF26)."""
+        if self._world is None:
+            return
+        transform = self._get_transform()
+        inv_transform, invertible = transform.inverted()
+        if not invertible:
+            return
+
+        geo_pos = inv_transform.map(pos)
+        u = self._find_nearest_vertex(geo_pos)
+        if u is None:
+            return
+
+        self.vertex_clicked.emit(u)
+        info = inspect_vertex_metrics(self._world, u, self._vertex_bytes)
+        flags: list[str] = []
+        if info.is_isolated:
+            flags.append("Isolado")
+        if info.is_vaccinated:
+            flags.append("Vacinado")
+        flags_str = f" ({', '.join(flags)})" if flags else ""
+        text = (
+            f"<b>Vértice #{info.vertex_id} — {info.country_name} ({info.iso3})</b><br/>"
+            f"Estado: {info.state_name}{flags_str}<br/>"
+            f"Grau (k): {info.degree} · Agrupamento local (C): "
+            f"{format_number_br(info.local_clustering, 3)}"
+        )
+        QToolTip.showText(self.mapToGlobal(pos.toPoint()), text, self)
 
     def _handle_tooltip(self, pos: QPointF) -> None:
         """Exibe tooltip ao passar o mouse sobre o polígono de um país."""
@@ -324,7 +506,16 @@ class MapCanvas(QWidget):
                 c_name = self._world.country_names.get(iso3, iso3)
                 c_pop = self._world.country_populations.get(iso3, 0)
                 n_verts = len(self._world.country_vertices.get(iso3, []))
-                text = f"<b>{c_name} ({iso3})</b><br/>População: {c_pop:,}<br/>Vértices: {n_verts}"
+                iso_tag = (
+                    "<br/><i>Sem rota aérea internacional (D16)</i>"
+                    if iso3 in self._world.isolated_countries
+                    else ""
+                )
+                text = (
+                    f"<b>{c_name} ({iso3})</b><br/>"
+                    f"População: {format_number_br(c_pop)}<br/>"
+                    f"Vértices: {n_verts}{iso_tag}"
+                )
                 QToolTip.showText(self.mapToGlobal(pos.toPoint()), text, self)
                 return
 
@@ -332,7 +523,9 @@ class MapCanvas(QWidget):
 
 
 class MapView(QWidget):
-    """Container com canvas do mapa e barra de controles flutuantes de zoom."""
+    """Container com canvas do mapa e barra de controles de zoom."""
+
+    vertex_clicked = Signal(int)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -344,7 +537,8 @@ class MapView(QWidget):
         main_layout.setSpacing(0)
 
         # Barra de ferramentas superior de navegação
-        toolbar = QHBoxLayout()
+        self._toolbar_widget = QWidget(self)
+        toolbar = QHBoxLayout(self._toolbar_widget)
         toolbar.setContentsMargins(8, 6, 8, 4)
 
         btn_fit = QPushButton("⛶ Ajustar mapa")
@@ -366,10 +560,15 @@ class MapView(QWidget):
         btn_zoom_in.clicked.connect(self._on_zoom_in_clicked)
         toolbar.addWidget(btn_zoom_in)
 
-        main_layout.addLayout(toolbar)
+        main_layout.addWidget(self._toolbar_widget)
 
         self._canvas = MapCanvas(self)
+        self._canvas.vertex_clicked.connect(self.vertex_clicked.emit)
         main_layout.addWidget(self._canvas, stretch=1)
+
+    def set_toolbar_visible(self, visible: bool) -> None:
+        """Exibe ou oculta a barra interna de zoom para evitar duplicidade com a janela."""
+        self._toolbar_widget.setVisible(visible)
 
     def set_world(self, world: World | None) -> None:
         self._canvas.set_world(world)

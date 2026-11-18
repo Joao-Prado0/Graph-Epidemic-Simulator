@@ -130,10 +130,18 @@ def _extract_timeline_series(
                 f"País {country_code!r} não encontrado na linha do tempo."
             )
 
+    has_fast_counts = hasattr(timeline, "compartment_counts")
     has_states = n_days > 0 and timeline.vertex_states(0) is not None
 
-    if country_code is None and has_states:
-        # Extração otimizada global direto do StateBuffer
+    if country_code is None and has_fast_counts:
+        for d in range(n_days):
+            counts = timeline.compartment_counts(d)  # type: ignore[attr-defined]
+            cum_cases.append(counts.cumulative_cases)
+            deaths.append(counts.deceased)
+            recovered.append(counts.recovered_natural)
+        pop = timeline.num_vertices
+    elif country_code is None and has_states:
+        # Extração global a partir de vertex_states quando compartment_counts não está presente
         for d in range(n_days):
             raw = timeline.vertex_states(d)
             assert raw is not None
@@ -278,8 +286,7 @@ def compare_simulation_to_real(
 
     # MSE e RMSE de casos e mortes
     cases_mse = (
-        sum((s - r) ** 2 for s, r in zip(norm_sim_cases, norm_real_cases, strict=False))
-        / t_common
+        sum((s - r) ** 2 for s, r in zip(norm_sim_cases, norm_real_cases, strict=False)) / t_common
     )
     cases_rmse = math.sqrt(cases_mse)
 
@@ -294,18 +301,10 @@ def compare_simulation_to_real(
     recovered_mse: float | None = None
     recovered_rmse: float | None = None
     if has_real_rec:
-        norm_sim_rec = [
-            (sim_rec[d0_sim + k] or 0) / sim_pop for k in range(t_common)
-        ]
-        norm_real_rec = [
-            (real_rec[d0_real + k] or 0) / real_pop for k in range(t_common)
-        ]
+        norm_sim_rec = [(sim_rec[d0_sim + k] or 0) / sim_pop for k in range(t_common)]
+        norm_real_rec = [(real_rec[d0_real + k] or 0) / real_pop for k in range(t_common)]
         recovered_mse = (
-            sum(
-                (s - r) ** 2
-                for s, r in zip(norm_sim_rec, norm_real_rec, strict=False)
-            )
-            / t_common
+            sum((s - r) ** 2 for s, r in zip(norm_sim_rec, norm_real_rec, strict=False)) / t_common
         )
         recovered_rmse = math.sqrt(recovered_mse)
 

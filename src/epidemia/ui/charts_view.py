@@ -227,10 +227,18 @@ class ChartsView(QWidget):
         r_vals: list[int] = []
         d_vals: list[int] = []
 
+        has_fast_counts = hasattr(timeline, "compartment_counts")
         has_bytes = timeline.vertex_states(0) is not None
 
         for d in range(n_days):
-            if has_bytes:
+            if has_fast_counts:
+                counts = timeline.compartment_counts(d)  # type: ignore[attr-defined]
+                s_vals.append(counts.susceptible)
+                e_vals.append(counts.exposed)
+                i_vals.append(counts.infected)
+                r_vals.append(counts.total_recovered)
+                d_vals.append(counts.deceased)
+            elif has_bytes:
                 v_bytes = timeline.vertex_states(d)
                 assert v_bytes is not None
                 counts = extract_compartment_counts(v_bytes)
@@ -266,6 +274,16 @@ class ChartsView(QWidget):
         self._day_line.setValue(day)
 
         if self._timeline is None or day < 0 or day >= self._timeline.days_available:
+            return
+
+        if hasattr(self._timeline, "compartment_counts"):
+            counts = self._timeline.compartment_counts(day)  # type: ignore[attr-defined]
+            tot = counts.total_vertices
+            self._chip_s.set_counts(counts.susceptible, tot)
+            self._chip_e.set_counts(counts.exposed, tot)
+            self._chip_i.set_counts(counts.infected, tot)
+            self._chip_r.set_counts(counts.total_recovered, tot)
+            self._chip_d.set_counts(counts.deceased, tot)
             return
 
         has_bytes = self._timeline.vertex_states(0) is not None

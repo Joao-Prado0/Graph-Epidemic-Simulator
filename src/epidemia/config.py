@@ -30,11 +30,7 @@ COUNTRIES_GEOJSON: Path = PROCESSED_DATA_DIR / "countries.geojson"
 
 def has_processed_data() -> bool:
     """Verifica se os arquivos essenciais de dados do M4 estão presentes."""
-    return (
-        COUNTRIES_CSV.is_file()
-        and EDGES_CSV.is_file()
-        and COUNTRIES_GEOJSON.is_file()
-    )
+    return COUNTRIES_CSV.is_file() and EDGES_CSV.is_file() and COUNTRIES_GEOJSON.is_file()
 
 
 def has_real_geometries() -> bool:

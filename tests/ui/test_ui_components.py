@@ -235,9 +235,20 @@ def test_real_pandemics_load_series_and_playback(qapp, tmp_path):
     assert win._map_view._canvas._country_counts is not None
 
     # Avança no player e confirma sincronização
-    win._player_bar._slider.setValue(1)
-    assert win._playback.current_day == 1
+    win._player_bar._slider.setValue(2)
+    assert win._playback.current_day == 2
     assert win._map_view._canvas._vertex_bytes is None
+    # No dia 2 da série sintética (cases=100, deaths=8, recovered=25),
+    # o total acumulado exibido na Tela 9 deve ser 100 (cumulative_cases) e não 67 (infected)
+    assert "100" in win._lbl_real_cases_tot.text()
+    assert "8" in win._lbl_real_deaths_tot.text()
+
+    # Alterna entre mapa e curvas (RF12) na Tela 9
+    assert win._real_center_stack.currentIndex() == 0
+    win._btn_real_toggle_view.click()
+    assert win._real_center_stack.currentIndex() == 1
+    win._real_charts_view._btn_back_map.click()
+    assert win._real_center_stack.currentIndex() == 0
 
     # Descarrega
     win._on_unload_pandemic_clicked()
@@ -341,3 +352,45 @@ def test_main_window_comparison_rf14(qapp, tmp_path):
     assert "• Dif. Pico Novos/Dia:" in win._lbl_res_comp_peak_diff.text()
     assert "• Dif. Tamanho Final:" in win._lbl_res_comp_final_diff.text()
     win.close()
+
+
+def test_map_canvas_antimeridian_width_and_dominant_color(qapp):
+    """Verifica largura no antimeridiano (D15) e delegação de dominant_state (M3)."""
+    from PySide6.QtCore import QRectF
+
+    from epidemia.core.timeline.protocol import STATE_R, CountryCounts
+    from epidemia.ui.map_view import _compute_country_deg_width
+    from epidemia.ui.styles import COLOR_ISOLATED, COLOR_RECOVERED_VAC
+    from epidemia.world.geometry import CountryGeometry
+
+    # Polígono cruzando o antimeridiano (+178 a -178 -> largura real de 4 graus, não 356)
+    ring_east = [(178.0, -15.0), (180.0, -15.0), (179.0, -17.0)]
+    ring_west = [(-180.0, -15.0), (-178.0, -15.0), (-179.0, -17.0)]
+    geom_fji = CountryGeometry(
+        iso3="FJI",
+        polygons=[(ring_east, []), (ring_west, [])],
+        bbox=(-180.0, -17.0, 180.0, -15.0),
+        area=4.0,
+        centroid=(179.0, -16.0),
+    )
+    width_deg = _compute_country_deg_width(geom_fji, QRectF(-180.0, 15.0, 360.0, 2.0))
+    assert width_deg < 10.0
+
+    world = create_synthetic_world(total_vertices=60, seed=42)
+    map_view = MapView()
+    map_view.set_world(world)
+
+    # Verifica cor de país isolado e de país com maioria vacinada
+    counts_iso = [
+        CountryCounts(iso3="BRA", susceptible=10, isolated=10),
+        CountryCounts(
+            iso3="ARG",
+            susceptible=2,
+            recovered_natural=2,
+            recovered_vaccinated=6,
+        ),
+    ]
+    map_view.set_day_data(bytes([0] * 60), counts_iso, is_real_flow=False)
+    assert map_view._canvas._calculate_dominant_status_color("BRA") == COLOR_ISOLATED
+    assert counts_iso[1].dominant_state == STATE_R
+    assert map_view._canvas._calculate_dominant_status_color("ARG") == COLOR_RECOVERED_VAC

@@ -117,9 +117,7 @@ def measure_empirical_r0(
         raise ParameterOutOfRangeError(f"horizon_days deve ser >= 1: {horizon_days}")
 
     active_vertices = [
-        u
-        for u in graph.vertices()
-        if any(True for _ in graph.neighbors(u, only_active=True))
+        u for u in graph.vertices() if any(True for _ in graph.neighbors(u, only_active=True))
     ]
     if not active_vertices:
         return 0.0

@@ -64,10 +64,10 @@ def export_timeline_csv(
         writer = csv.writer(f, delimiter=delimiter)
         writer.writerow(CSV_HEADER)
 
+        has_fast_counts = hasattr(timeline, "compartment_counts")
         for dia in range(n_dias):
-            v_bytes = timeline.vertex_states(dia)
-            if v_bytes is not None:
-                counts = extract_compartment_counts(v_bytes)
+            if has_fast_counts:
+                counts = timeline.compartment_counts(dia)  # type: ignore[attr-defined]
                 writer.writerow(
                     [
                         dia,
@@ -82,20 +82,37 @@ def export_timeline_csv(
                     ]
                 )
             else:
-                # Fallback para timelines sem bytes de vértice individuais (agregado)
-                country_counts = timeline.country_counts(dia)
-                tot_s = sum(c.susceptible for c in country_counts)
-                tot_i = sum(c.active for c in country_counts)
-                tot_rec = sum(c.recovered for c in country_counts)
-                tot_d = sum(c.deaths for c in country_counts)
-                tot_e = 0
-                tot_r_nat = tot_rec
-                tot_r_vac = 0
-                tot_iso = 0
-                total = tot_s + tot_i + tot_rec + tot_d
-                writer.writerow(
-                    [dia, tot_s, tot_e, tot_i, tot_r_nat, tot_r_vac, tot_d, tot_iso, total]
-                )
+                v_bytes = timeline.vertex_states(dia)
+                if v_bytes is not None:
+                    counts = extract_compartment_counts(v_bytes)
+                    writer.writerow(
+                        [
+                            dia,
+                            counts.susceptible,
+                            counts.exposed,
+                            counts.infected,
+                            counts.recovered_natural,
+                            counts.recovered_vaccinated,
+                            counts.deceased,
+                            counts.isolated,
+                            counts.total_vertices,
+                        ]
+                    )
+                else:
+                    # Fallback para timelines sem bytes de vértice individuais (agregado)
+                    country_counts = timeline.country_counts(dia)
+                    tot_s = sum(c.susceptible for c in country_counts)
+                    tot_i = sum(c.active for c in country_counts)
+                    tot_rec = sum(c.recovered for c in country_counts)
+                    tot_d = sum(c.deaths for c in country_counts)
+                    tot_e = 0
+                    tot_r_nat = tot_rec
+                    tot_r_vac = 0
+                    tot_iso = 0
+                    total = tot_s + tot_i + tot_rec + tot_d
+                    writer.writerow(
+                        [dia, tot_s, tot_e, tot_i, tot_r_nat, tot_r_vac, tot_d, tot_iso, total]
+                    )
 
             linhas_exportadas += 1
 

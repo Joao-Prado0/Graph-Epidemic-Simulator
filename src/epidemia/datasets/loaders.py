@@ -209,9 +209,7 @@ def load_edges_csv(path: Path | str) -> list[EdgeRecord]:
                 ) from err
 
             if routes <= 0:
-                raise ValueError(
-                    f"Contagem de rotas não positiva na linha {row_idx}: {routes}."
-                )
+                raise ValueError(f"Contagem de rotas não positiva na linha {row_idx}: {routes}.")
 
             edges.append(EdgeRecord(iso3_a=iso3_a, iso3_b=iso3_b, routes=routes))
 

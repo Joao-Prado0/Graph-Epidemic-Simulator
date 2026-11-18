@@ -34,11 +34,7 @@ def sample_countries_csv(tmp_path: Path) -> Path:
 @pytest.fixture
 def sample_edges_csv(tmp_path: Path) -> Path:
     csv_file = tmp_path / "edges.csv"
-    csv_content = (
-        "iso3_a,iso3_b,routes\n"
-        "BRA,GIN,15\n"
-        "GIN,KOS,3\n"
-    )
+    csv_content = "iso3_a,iso3_b,routes\nBRA,GIN,15\nGIN,KOS,3\n"
     csv_file.write_text(csv_content, encoding="utf-8")
     return csv_file
 

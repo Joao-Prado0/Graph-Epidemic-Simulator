@@ -51,6 +51,7 @@ STATE_COLORS: dict[int, QColor] = {
     4: COLOR_DECEASED,
 }
 
+
 # ---------------------------------------------------------------------------
 # Funções de formatação pt-BR (ponto para milhar, vírgula para decimal)
 # ---------------------------------------------------------------------------
