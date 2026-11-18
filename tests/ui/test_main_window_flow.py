@@ -54,6 +54,12 @@ def test_main_window_flow_navigation(monkeypatch):
     win._charts_view._btn_back_map.click()
     assert win._center_stack.currentIndex() == 0
 
+    # Testa cálculo do Caminho Mínimo Epidemiológico (M1 — Dijkstra / BFS / DFS) na Tela 5
+    win._btn_calc_path.click()
+    assert "BRA" in win._lbl_path_route.text()
+    assert "−ln(p)" in win._lbl_path_cost.text()
+    assert "BFS:" in win._lbl_path_traversal.text()
+
     # Reiniciar simulação volta para Tela 2 de configuração
     win._btn_restart_sim.click()
     assert win._sim_stack.currentIndex() == 0

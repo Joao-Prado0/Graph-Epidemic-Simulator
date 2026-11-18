@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QFrame,
     QGridLayout,
@@ -23,6 +24,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QStackedWidget,
     QTabWidget,
@@ -37,6 +39,7 @@ from epidemia.app.panel_metrics import (
     NetworkAnalysisResult,
     compute_epidemic_summary_from_timeline,
     compute_network_analysis,
+    compute_shortest_epidemic_path,
 )
 from epidemia.app.playback import PlaybackController
 from epidemia.app.real_session import RealSession
@@ -469,11 +472,15 @@ class MainWindow(QMainWindow):
         return widget
 
     def _build_sim_results_column(self) -> QWidget:
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setMinimumWidth(290)
+        scroll.setMaximumWidth(355)
+
         widget = QWidget()
-        widget.setMinimumWidth(280)
-        widget.setMaximumWidth(340)
         layout = QVBoxLayout(widget)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(0, 0, 4, 0)
         layout.setSpacing(10)
 
         # Card Resultados da Epidemia (RF21, RF24)
@@ -539,8 +546,8 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(grp_comp)
 
-        # Card Análise da Rede (M2 — RF18, RF19)
-        grp_net = QGroupBox("Métricas da rede (M2)")
+        # Card Análise da Rede (M1 & M2 — RF16, RF18, RF19, RF20)
+        grp_net = QGroupBox("Métricas da rede (M1 / M2)")
         net_layout = QVBoxLayout(grp_net)
         net_layout.setSpacing(4)
 
@@ -558,6 +565,8 @@ class MainWindow(QMainWindow):
         net_layout.addWidget(self._btn_calc_net)
 
         self._lbl_net_vertices = QLabel("Vértices no grafo: --")
+        self._lbl_net_components = QLabel("Componentes conexas (M1): --")
+        self._lbl_net_tarjan = QLabel("Pontes / articulações (M2): --")
         self._lbl_net_deg_avg = QLabel("Grau médio: --")
         self._lbl_net_deg_max = QLabel("Grau máximo: --")
         self._lbl_net_betweenness = QLabel("Top intermediação: --")
@@ -566,19 +575,83 @@ class MainWindow(QMainWindow):
 
         for lbl in (
             self._lbl_net_vertices,
+            self._lbl_net_components,
+            self._lbl_net_tarjan,
             self._lbl_net_deg_avg,
             self._lbl_net_deg_max,
             self._lbl_net_betweenness,
             self._lbl_net_clustering,
             self._lbl_net_communities,
         ):
+            lbl.setWordWrap(True)
             lbl.setStyleSheet(f"font-size: 11px; color: {TEXT_SECONDARY_HEX};")
             net_layout.addWidget(lbl)
 
         layout.addWidget(grp_net)
+
+        # Card Caminho Epidemiológico (M1 — Dijkstra RF17 + BFS/DFS RF16)
+        grp_path = QGroupBox("Caminho mínimo (M1 — Dijkstra / BFS)")
+        path_layout = QVBoxLayout(grp_path)
+        path_layout.setSpacing(5)
+
+        src_row = QHBoxLayout()
+        src_row.addWidget(QLabel("Origem:"))
+        self._combo_path_src = QComboBox()
+        src_row.addWidget(self._combo_path_src, stretch=1)
+        path_layout.addLayout(src_row)
+
+        dst_row = QHBoxLayout()
+        dst_row.addWidget(QLabel("Destino:"))
+        self._combo_path_dst = QComboBox()
+        dst_row.addWidget(self._combo_path_dst, stretch=1)
+        path_layout.addLayout(dst_row)
+
+        self._populate_path_combos()
+
+        self._btn_calc_path = QPushButton("Calcular rota (Dijkstra / BFS)")
+        self._btn_calc_path.setObjectName("btnSecondary")
+        self._btn_calc_path.clicked.connect(self._on_calc_shortest_path_clicked)
+        path_layout.addWidget(self._btn_calc_path)
+
+        self._lbl_path_route = QLabel("Rota: --")
+        self._lbl_path_cost = QLabel("Distância efetiva −ln(p): --")
+        self._lbl_path_traversal = QLabel("BFS / DFS: --")
+
+        for lbl in (self._lbl_path_route, self._lbl_path_cost, self._lbl_path_traversal):
+            lbl.setWordWrap(True)
+            lbl.setStyleSheet(f"font-size: 11px; color: {TEXT_SECONDARY_HEX};")
+            path_layout.addWidget(lbl)
+
+        layout.addWidget(grp_path)
         layout.addStretch(1)
 
-        return widget
+        scroll.setWidget(widget)
+        return scroll
+
+    def _populate_path_combos(self) -> None:
+        """Popula os seletores de país de origem e destino a partir do objeto World."""
+        self._combo_path_src.blockSignals(True)
+        self._combo_path_dst.blockSignals(True)
+        self._combo_path_src.clear()
+        self._combo_path_dst.clear()
+
+        for iso3 in self._world.country_codes:
+            name = self._world.country_names.get(iso3, iso3)
+            label = f"{name} ({iso3})"
+            self._combo_path_src.addItem(label, iso3)
+            self._combo_path_dst.addItem(label, iso3)
+
+        if self._combo_path_src.count() > 0:
+            idx_bra = self._combo_path_src.findData("BRA")
+            self._combo_path_src.setCurrentIndex(idx_bra if idx_bra >= 0 else 0)
+        if self._combo_path_dst.count() > 1:
+            idx_dst = self._combo_path_dst.findData("GIN")
+            if idx_dst < 0:
+                idx_dst = 1 if self._combo_path_src.currentIndex() == 0 else 0
+            self._combo_path_dst.setCurrentIndex(idx_dst)
+
+        self._combo_path_src.blockSignals(False)
+        self._combo_path_dst.blockSignals(False)
 
     def _setup_real_pandemics_tab(self) -> None:
         layout = QVBoxLayout(self._tab_real)
@@ -1168,6 +1241,16 @@ class MainWindow(QMainWindow):
         self._btn_calc_net.setText("Calcular análise de rede")
 
         self._lbl_net_vertices.setText(f"Vértices no grafo: {format_number_br(res.num_vertices)}")
+        comp_pct = res.largest_component_size / res.num_vertices if res.num_vertices > 0 else 0.0
+        self._lbl_net_components.setText(
+            f"Componentes conexas (M1): {res.num_components} "
+            f"(gigante: {format_number_br(res.largest_component_size)} · "
+            f"{format_percent_br(comp_pct, 1)})"
+        )
+        self._lbl_net_tarjan.setText(
+            f"Pontes / articulações (M2): {format_number_br(res.num_bridges)} pontes · "
+            f"{format_number_br(res.num_articulation_points)} artic."
+        )
         self._lbl_net_deg_avg.setText(f"Grau médio: {format_number_br(res.avg_degree, 2)}")
         self._lbl_net_deg_max.setText(f"Grau máx: {res.max_degree} (nó #{res.max_degree_vertex})")
 
@@ -1185,6 +1268,51 @@ class MainWindow(QMainWindow):
         self._btn_calc_net.setEnabled(True)
         self._btn_calc_net.setText("Calcular análise de rede")
         self.show_error_dialog("Erro na Análise de Rede", error)
+
+    def _on_calc_shortest_path_clicked(self) -> None:
+        """Calcula e exibe o caminho mínimo (Dijkstra RF17) e busca (BFS/DFS RF16)."""
+        src_iso = self._combo_path_src.currentData()
+        dst_iso = self._combo_path_dst.currentData()
+        if not src_iso or not dst_iso:
+            return
+
+        try:
+            beta = self._session.calibrated_beta
+            summary = compute_shortest_epidemic_path(
+                self._world,
+                str(src_iso),
+                str(dst_iso),
+                beta=beta,
+            )
+            if not summary.reachable:
+                self._lbl_path_route.setText(
+                    f"Rota ({summary.source_iso3} → {summary.target_iso3}): "
+                    f"Inalcançável (componentes desconexas)"
+                )
+                self._lbl_path_cost.setText("Distância efetiva −ln(p): ∞ (prob: 0,0%)")
+                self._lbl_path_traversal.setText(
+                    f"BFS: ∞ saltos · Alcance DFS origem: "
+                    f"{format_number_br(summary.dfs_reachable_count)} nós"
+                )
+            else:
+                countries_str = " → ".join(summary.country_path)
+                self._lbl_path_route.setText(
+                    f"Rota: {countries_str} "
+                    f"(#{summary.source_vertex} → #{summary.target_vertex}, "
+                    f"{len(summary.vertex_path) - 1} arestas)"
+                )
+                dist_fmt = format_number_br(summary.effective_distance, 3)
+                prob_fmt = format_percent_br(summary.path_probability, 2)
+                self._lbl_path_cost.setText(
+                    f"Distância efetiva −ln(p): {dist_fmt} (P = {prob_fmt})"
+                )
+                hops_val = summary.bfs_hops if summary.bfs_hops is not None else 0
+                self._lbl_path_traversal.setText(
+                    f"BFS: {hops_val} saltos · Alcance DFS: "
+                    f"{format_number_br(summary.dfs_reachable_count)} nós"
+                )
+        except EpidemiaError as exc:
+            self.show_error_dialog("Erro no Caminho Mínimo", str(exc))
 
     def _on_export_csv_clicked(self) -> None:
         if not self._session.is_started:

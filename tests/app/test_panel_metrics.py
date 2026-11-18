@@ -5,6 +5,8 @@ from __future__ import annotations
 from epidemia.app.panel_metrics import (
     compute_epidemic_summary_from_timeline,
     compute_network_analysis,
+    compute_shortest_epidemic_path,
+    inspect_vertex_metrics,
 )
 from epidemia.app.simulation_session import SimulationSession
 from epidemia.core.analysis.epidemic_metrics import (
@@ -12,6 +14,7 @@ from epidemia.core.analysis.epidemic_metrics import (
     summarize_epidemic_series,
 )
 from epidemia.core.epidemic.parameters import SimulationConfig
+from epidemia.core.timeline.protocol import encode_vertex_byte
 from tests.fixtures import create_synthetic_world
 
 
@@ -67,7 +70,7 @@ def test_painel_consistente_com_summarize_epidemic_series():
 
 
 def test_analise_de_rede_painel():
-    """Verifica cálculo de graus, intermediação aproximada e comunidades por país."""
+    """Verifica cálculo de componentes (M1), Tarjan (M2), graus, intermediação e comunidades."""
     world = create_synthetic_world(total_vertices=60, seed=42)
     res = compute_network_analysis(
         world.graph,
@@ -84,4 +87,48 @@ def test_analise_de_rede_painel():
     assert res.num_communities >= 1
     assert len(res.country_communities) > 0
     assert res.avg_clustering >= 0.0
-    assert "indisponível" in res.comparison_metric_status
+    assert res.num_components >= 2  # TUV é isolado no mundo sintético
+    assert 0 < res.largest_component_size <= 60
+    assert res.num_bridges >= 0
+    assert res.num_articulation_points >= 0
+
+
+def test_caminho_minimo_epidemiologico_dijkstra_bfs_dfs():
+    """Verifica integración de Dijkstra (RF17), BFS e DFS (RF16) entre países no painel."""
+    world = create_synthetic_world(total_vertices=60, seed=42)
+
+    # Entre países conectados por rota aérea (BRA -> LBR)
+    path_ok = compute_shortest_epidemic_path(world, "BRA", "LBR", beta=0.4)
+    assert path_ok.reachable is True
+    assert path_ok.source_iso3 == "BRA"
+    assert path_ok.target_iso3 == "LBR"
+    assert path_ok.country_path[0] == "BRA"
+    assert path_ok.country_path[-1] == "LBR"
+    assert path_ok.effective_distance > 0.0
+    assert 0.0 < path_ok.path_probability <= 1.0
+    assert path_ok.bfs_hops is not None and path_ok.bfs_hops >= 1
+    assert path_ok.dfs_reachable_count > 10
+
+    # Entre país conectado (BRA) e país sem rota aérea (TUV)
+    path_unreach = compute_shortest_epidemic_path(world, "BRA", "TUV", beta=0.4)
+    assert path_unreach.reachable is False
+    assert path_unreach.vertex_path == ()
+    assert path_unreach.path_probability == 0.0
+    assert path_unreach.bfs_hops is None
+
+
+def test_inspecao_de_vertice_metricas_locais():
+    """Verifica inspeção de vértice com grau e agrupamento local (RF18, RF26)."""
+    world = create_synthetic_world(total_vertices=60, seed=42)
+    raw = bytearray(60)
+    raw[0] = encode_vertex_byte(2, isolated=True, vaccinated=False)
+
+    info = inspect_vertex_metrics(world, 0, bytes(raw))
+    assert info.vertex_id == 0
+    assert info.iso3 in world.country_codes
+    assert info.degree >= 0
+    assert 0.0 <= info.local_clustering <= 1.0
+    assert info.state_code == 2
+    assert info.state_name == "I"
+    assert info.is_isolated is True
+    assert info.is_vaccinated is False
