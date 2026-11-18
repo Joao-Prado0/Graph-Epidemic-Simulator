@@ -457,6 +457,10 @@ class ConfigPanel(QWidget):
         country_box = QHBoxLayout()
         country_box.addWidget(QLabel("País:"))
         self._combo_pz_country = QComboBox()
+        self._combo_pz_country.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self._combo_pz_country.setMinimumContentsLength(14)
         self._combo_pz_country.currentIndexChanged.connect(self._on_pz_country_changed)
         country_box.addWidget(self._combo_pz_country, stretch=1)
         pz_m_layout.addLayout(country_box)
@@ -761,7 +765,11 @@ class ConfigPanel(QWidget):
                 f"font-size: 12px; font-weight: bold; color: {ACCENT_TEAL_HEX};"
             )
             if calibration_result is not None:
-                ach = getattr(calibration_result, "achieved_r0", None)
+                ach = getattr(
+                    calibration_result,
+                    "measured_r0",
+                    getattr(calibration_result, "achieved_r0", None),
+                )
                 newm = getattr(calibration_result, "newman_r0", None)
                 if ach is not None and newm is not None:
                     self._lbl_calibration_details.setText(

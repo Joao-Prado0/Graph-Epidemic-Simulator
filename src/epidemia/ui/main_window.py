@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QFileDialog,
     QFrame,
@@ -275,28 +276,9 @@ class MainWindow(QMainWindow):
         root_layout.setContentsMargins(10, 10, 10, 10)
         root_layout.setSpacing(8)
 
-        # Cabeçalho Superior com Logo e Navegação (Wireframe)
-        top_header = QHBoxLayout()
-        top_header.setSpacing(12)
-
-        logo_box = QVBoxLayout()
-        logo_box.setSpacing(0)
-        lbl_logo = QLabel("REDE / EPIDEMIAS")
-        lbl_logo.setStyleSheet(
-            f"font-size: 16px; font-weight: 900; color: {ACCENT_TEAL_HEX}; letter-spacing: 1px;"
-        )
-        lbl_sub = QLabel("Simulador de Epidemias em Redes")
-        lbl_sub.setStyleSheet(f"font-size: 10px; color: {TEXT_MUTED_HEX};")
-        logo_box.addWidget(lbl_logo)
-        logo_box.addWidget(lbl_sub)
-        top_header.addLayout(logo_box)
-
-        top_header.addSpacing(20)
-
-        # Abas de navegação principais (Início, Simulação, Pandemias reais)
+        # Abas de navegação principais no topo (Início, Simulação, Pandemias reais)
         self._tabs = QTabWidget(self)
-        top_header.addWidget(self._tabs, stretch=1)
-        root_layout.addLayout(top_header)
+        root_layout.addWidget(self._tabs, stretch=1)
 
         # Aba 0: Início (Tela 1)
         self._start_screen = StartScreen()
@@ -640,12 +622,20 @@ class MainWindow(QMainWindow):
         src_row = QHBoxLayout()
         src_row.addWidget(QLabel("Origem:"))
         self._combo_path_src = QComboBox()
+        self._combo_path_src.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self._combo_path_src.setMinimumContentsLength(10)
         src_row.addWidget(self._combo_path_src, stretch=1)
         path_layout.addLayout(src_row)
 
         dst_row = QHBoxLayout()
         dst_row.addWidget(QLabel("Destino:"))
         self._combo_path_dst = QComboBox()
+        self._combo_path_dst.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self._combo_path_dst.setMinimumContentsLength(10)
         dst_row.addWidget(self._combo_path_dst, stretch=1)
         path_layout.addLayout(dst_row)
 
@@ -1146,6 +1136,9 @@ class MainWindow(QMainWindow):
         )
 
     def _on_calibrate_beta(self, config: SimulationConfig) -> None:
+        self._config_panel._btn_calibrate.setEnabled(False)
+        self._config_panel._btn_calibrate.setText("Calibrando β...")
+        QApplication.processEvents()
         try:
             self._ensure_world_for_config(config)
             self._session.configure(config)
@@ -1153,6 +1146,9 @@ class MainWindow(QMainWindow):
             self._config_panel.set_calibrated_beta(beta, self._session.calibration_result)
         except EpidemiaError as exc:
             self.show_error_dialog("Erro na Calibração", str(exc))
+        finally:
+            self._config_panel._btn_calibrate.setText("Calibrar β")
+            self._config_panel._btn_calibrate.setEnabled(True)
 
     def _on_calibration_done(self, beta: float) -> None:
         cal_res = self._session.calibration_result

@@ -94,14 +94,16 @@ def test_map_view_set_world_and_day_data(qapp):
     v_bytes = bytes([0] * 58 + [2, 2])  # 58 suscetíveis, 2 infectados
     map_view.set_day_data(v_bytes)
 
-    # Força evento de pintura
-    map_view.repaint()
+    # Força zoom alto para ativar _country_visible_nodes (>= 40 px) e renderizar os pontos
+    map_view._canvas._zoom = 20.0
+    map_view._canvas.paintEvent(None)
+    assert any(map_view._canvas._country_visible_nodes.values())
 
     # Testa zoom in, zoom out e fit
     map_view._on_zoom_in_clicked()
     map_view._on_zoom_out_clicked()
     map_view._on_fit_clicked()
-    map_view.repaint()
+    map_view._canvas.paintEvent(None)
 
 
 def test_charts_view_render_and_export_png(qapp, tmp_path):

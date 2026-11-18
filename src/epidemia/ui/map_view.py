@@ -287,108 +287,117 @@ class MapCanvas(QWidget):
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-        # Fundo do oceano / mapa
-        painter.fillRect(self.rect(), QColor("#141619"))
+            # Fundo do oceano / mapa
+            painter.fillRect(self.rect(), QColor("#141619"))
 
-        if self._world is None:
-            painter.setPen(QColor("#777777"))
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Nenhum cenário carregado.")
-            return
-
-        transform = self._get_transform()
-        painter.setTransform(transform)
-
-        # 1. Renderização dos polígonos dos países
-        outline_pen = QPen(QColor("#4a5568"), 1.0 / self._zoom)
-        outline_pen.setCosmetic(True)
-        country_fill_colors: dict[str, QColor] = {}
-
-        for iso3, path in self._country_paths.items():
-            if self._is_real_flow:
-                fill_color = self._calculate_real_flow_color(iso3)
-            else:
-                fill_color = self._calculate_dominant_status_color(iso3)
-            country_fill_colors[iso3] = fill_color
-
-            painter.setPen(outline_pen)
-            painter.setBrush(QBrush(fill_color))
-            painter.drawPath(path)
-
-            # Atualização da histerese de nós (40 px entrada / 36 px saída)
-            deg_w = self._country_deg_widths.get(iso3, 1.0)
-            screen_width_px = deg_w * self._zoom
-            currently_visible = self._country_visible_nodes.get(iso3, False)
-
-            if not currently_visible and screen_width_px >= VERTEX_SHOW_THRESHOLD_PX:
-                self._country_visible_nodes[iso3] = True
-            elif currently_visible and screen_width_px < VERTEX_HIDE_THRESHOLD_PX:
-                self._country_visible_nodes[iso3] = False
-
-        # 2. Renderização dos vértices em lote com drawPoints (Arquitetura 4.1, RNF02)
-        point_diam_px = max(3.0, VERTEX_MARKER_RADIUS * 1.4)
-        positions = self._world.vertex_positions
-
-        if self._is_real_flow:
-            # Arquitetura 4.1: no fluxo real, os vértices recebem a cor do polígono do país
-            for iso3, is_vis in self._country_visible_nodes.items():
-                if not is_vis:
-                    continue
-                verts = self._world.country_vertices.get(iso3, [])
-                if not verts:
-                    continue
-                poly_pts = QPolygonF(
-                    [QPointF(positions[u].x, positions[u].y) for u in verts if u < len(positions)]
+            if self._world is None:
+                painter.setPen(QColor("#777777"))
+                painter.drawText(
+                    self.rect(), Qt.AlignmentFlag.AlignCenter, "Nenhum cenário carregado."
                 )
-                base_col = country_fill_colors.get(iso3, QColor("#4a5568"))
-                pen = QPen(base_col.lighter(135), point_diam_px)
-                pen.setCosmetic(True)
-                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-                painter.setPen(pen)
-                painter.drawPoints(poly_pts)
-        elif self._vertex_bytes is not None:
-            v_bytes = self._vertex_bytes
-            n_bytes = len(v_bytes)
-            batches: dict[int, QPolygonF] = {}
-            color_table: dict[int, QColor] = {
-                0: STATE_COLORS[0],
-                1: STATE_COLORS[1],
-                2: STATE_COLORS[2],
-                3: STATE_COLORS[3],
-                4: STATE_COLORS[4],
-                5: COLOR_RECOVERED_VAC,
-                6: QColor(COLOR_HEX_ISOLATED),
-            }
+                return
 
-            for iso3, is_vis in self._country_visible_nodes.items():
-                if not is_vis:
-                    continue
-                verts = self._world.country_vertices.get(iso3, [])
-                for u in verts:
-                    if u >= len(positions):
+            transform = self._get_transform()
+            painter.setTransform(transform)
+
+            # 1. Renderização dos polígonos dos países
+            outline_pen = QPen(QColor("#4a5568"), 1.0 / self._zoom)
+            outline_pen.setCosmetic(True)
+            country_fill_colors: dict[str, QColor] = {}
+
+            for iso3, path in self._country_paths.items():
+                if self._is_real_flow:
+                    fill_color = self._calculate_real_flow_color(iso3)
+                else:
+                    fill_color = self._calculate_dominant_status_color(iso3)
+                country_fill_colors[iso3] = fill_color
+
+                painter.setPen(outline_pen)
+                painter.setBrush(QBrush(fill_color))
+                painter.drawPath(path)
+
+                # Atualização da histerese de nós (40 px entrada / 36 px saída)
+                deg_w = self._country_deg_widths.get(iso3, 1.0)
+                screen_width_px = deg_w * self._zoom
+                currently_visible = self._country_visible_nodes.get(iso3, False)
+
+                if not currently_visible and screen_width_px >= VERTEX_SHOW_THRESHOLD_PX:
+                    self._country_visible_nodes[iso3] = True
+                elif currently_visible and screen_width_px < VERTEX_HIDE_THRESHOLD_PX:
+                    self._country_visible_nodes[iso3] = False
+
+            # 2. Renderização dos vértices em lote com drawPoints (Arquitetura 4.1, RNF02)
+            point_diam_px = max(3.0, VERTEX_MARKER_RADIUS * 1.4)
+            positions = self._world.vertex_positions
+
+            if self._is_real_flow:
+                # Arquitetura 4.1: no fluxo real, os vértices recebem a cor do polígono do país
+                for iso3, is_vis in self._country_visible_nodes.items():
+                    if not is_vis:
                         continue
-                    pt = positions[u]
-                    b = v_bytes[u] if u < n_bytes else 0
-                    if b & FLAG_ISOLATED:
-                        key = 6
-                    elif (b & STATE_MASK) == STATE_R and (b & FLAG_VACCINATED):
-                        key = 5
-                    else:
-                        key = b & STATE_MASK
+                    verts = self._world.country_vertices.get(iso3, [])
+                    if not verts:
+                        continue
+                    poly_pts = QPolygonF(
+                        [
+                            QPointF(positions[u][0], positions[u][1])
+                            for u in verts
+                            if u < len(positions)
+                        ]
+                    )
+                    base_col = country_fill_colors.get(iso3, QColor("#4a5568"))
+                    pen = QPen(base_col.lighter(135), point_diam_px)
+                    pen.setCosmetic(True)
+                    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                    painter.setPen(pen)
+                    painter.drawPoints(poly_pts)
+            elif self._vertex_bytes is not None:
+                v_bytes = self._vertex_bytes
+                n_bytes = len(v_bytes)
+                batches: dict[int, QPolygonF] = {}
+                color_table: dict[int, QColor] = {
+                    0: STATE_COLORS[0],
+                    1: STATE_COLORS[1],
+                    2: STATE_COLORS[2],
+                    3: STATE_COLORS[3],
+                    4: STATE_COLORS[4],
+                    5: COLOR_RECOVERED_VAC,
+                    6: QColor(COLOR_HEX_ISOLATED),
+                }
 
-                    poly_group = batches.get(key)
-                    if poly_group is None:
-                        poly_group = QPolygonF()
-                        batches[key] = poly_group
-                    poly_group.append(QPointF(pt.x, pt.y))
+                for iso3, is_vis in self._country_visible_nodes.items():
+                    if not is_vis:
+                        continue
+                    verts = self._world.country_vertices.get(iso3, [])
+                    for u in verts:
+                        if u >= len(positions):
+                            continue
+                        pt = positions[u]
+                        b = v_bytes[u] if u < n_bytes else 0
+                        if b & FLAG_ISOLATED:
+                            key = 6
+                        elif (b & STATE_MASK) == STATE_R and (b & FLAG_VACCINATED):
+                            key = 5
+                        else:
+                            key = b & STATE_MASK
 
-            for key, poly_group in batches.items():
-                pen = QPen(color_table.get(key, QColor("#ffffff")), point_diam_px)
-                pen.setCosmetic(True)
-                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-                painter.setPen(pen)
-                painter.drawPoints(poly_group)
+                        poly_group = batches.get(key)
+                        if poly_group is None:
+                            poly_group = QPolygonF()
+                            batches[key] = poly_group
+                        poly_group.append(QPointF(pt[0], pt[1]))
+
+                for key, poly_group in batches.items():
+                    pen = QPen(color_table.get(key, QColor("#ffffff")), point_diam_px)
+                    pen.setCosmetic(True)
+                    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                    painter.setPen(pen)
+                    painter.drawPoints(poly_group)
+        finally:
+            painter.end()
 
     def wheelEvent(self, event: QWheelEvent) -> None:
         """Zoom com a roda do mouse centrado no ponteiro."""
@@ -441,8 +450,8 @@ class MapCanvas(QWidget):
             for u in self._world.country_vertices.get(iso3, ()):
                 if u >= len(positions):
                     continue
-                dx = positions[u].x - gx
-                dy = positions[u].y - gy
+                dx = positions[u][0] - gx
+                dy = positions[u][1] - gy
                 d2 = dx * dx + dy * dy
                 if d2 <= best_d2:
                     best_d2 = d2
