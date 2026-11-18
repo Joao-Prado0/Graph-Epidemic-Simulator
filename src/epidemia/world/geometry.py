@@ -143,6 +143,7 @@ def build_country_geometry(iso3: str, geometry: Mapping[str, Any]) -> CountryGeo
     max_lat = -math.inf
     total_area = 0.0
     weighted_lon = 0.0
+    weighted_lon_shifted = 0.0
     weighted_lat = 0.0
 
     for exterior, holes in polygons:
@@ -159,9 +160,16 @@ def build_country_geometry(iso3: str, geometry: Mapping[str, Any]) -> CountryGeo
         cx = 0.5 * (bx0 + bx1)
         cy = 0.5 * (by0 + by1)
         weighted_lon += cx * p_area
+        weighted_lon_shifted += (cx + 360.0 if cx < 0.0 else cx) * p_area
         weighted_lat += cy * p_area
 
-    centroid: Point2D = (weighted_lon / total_area, weighted_lat / total_area)
+    if max_lon - min_lon > 180.0:
+        mean_lon = weighted_lon_shifted / total_area
+        if mean_lon > 180.0:
+            mean_lon -= 360.0
+    else:
+        mean_lon = weighted_lon / total_area
+    centroid: Point2D = (mean_lon, weighted_lat / total_area)
     return CountryGeometry(
         iso3=iso3,
         polygons=polygons,
