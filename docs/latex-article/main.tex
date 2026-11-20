@@ -1,4 +1,4 @@
-\documentclass[12pt]{article}
+\documentclass[11pt]{article}
 
 \usepackage{sbc-template}
 \usepackage{graphicx,url}
@@ -24,35 +24,23 @@ Henrique Pereira Resende Rocha\inst{1}, Luiz Felipe Ribeiro Souza\inst{1}}
 \maketitle
 
 \begin{abstract}
-  This meta-paper describes the style to be used in articles and short papers
-  for SBC conferences. For papers in English, you should add just an abstract
-  while for the papers in Portuguese, we also ask for an abstract in
-  Portuguese (``resumo''). In both cases, abstracts should not have more than
-  10 lines and must be in the first page of the paper.
+  This paper presents a network epidemic simulator, developed for a Graph Theory course, that represents the world population as a single graph. Each country is a set of vertices proportional to its population, connected by geometric proximity, and countries are linked via OpenFlights flight routes. Propagation follows a stochastic compartmental model (S, E, I, R, and D) with automated isolation and vaccination, and the same graph reproduces real pandemics using public data. The graph structure and algorithms were implemented by the group, complete with complexity analysis, and a desktop application displays the progression on a map.
 \end{abstract}
      
 \begin{resumo} 
-  Este meta-artigo descreve o estilo a ser usado na confecção de artigos e
-  resumos de artigos para publicação nos anais das conferências organizadas
-  pela SBC. É solicitada a escrita de resumo e abstract apenas para os artigos
-  escritos em português. Artigos em inglês deverão apresentar apenas abstract.
-  Nos dois casos, o autor deve tomar cuidado para que o resumo (e o abstract)
-  não ultrapassem 10 linhas cada, sendo que ambos devem estar na primeira
-  página do artigo.
+  Este artigo apresenta um simulador de epidemias em redes, desenvolvido na disciplina de Teoria dos Grafos, que representa a população mundial por um grafo único. Cada país é um conjunto de vértices proporcional à sua população, ligados por proximidade geométrica, e os países se conectam pelas rotas aéreas do OpenFlights. A propagação segue um modelo compartimental estocástico (S, E, I, R e D) com isolamento e vacinação automáticos, e o mesmo grafo reproduz pandemias reais a partir de dados públicos. A estrutura de grafo e os algoritmos foram implementados pelo grupo, com análise de complexidade, e uma aplicação desktop exibe a evolução no mapa.
 \end{resumo}
 
 
 \section{Introdução e Contextualização}
 
-\subsection{Motivação}
+Entender como uma doença se espalha depende tanto do comportamento do agente infeccioso quanto da estrutura de contatos entre as pessoas. Os modelos compartimentais clássicos, derivados do trabalho de Kermack e McKendrick~\cite{kermack1927}, descrevem a epidemia por equações diferenciais sobre o model SIR (Suscetíveis, Infectados e Recuperados) e assumem mistura homogênea, isto é, que todo indivíduo tem a mesma chance de ser infectado. Essa hipótese, apesar de ser a base para os estudos matemáticos epidemológicos modernos, deixa de fora justamente o que mais diferencia uma epidemia de outra: redes reais têm hubs, aglomerações e poucas conexões entre comunidades, e a topologia altera de forma marcante o limiar epidêmico e o ritmo de propagação~\cite{pastor2015}.
 
-Entender como uma doença se espalha depende tanto do comportamento do agente infeccioso quanto da estrutura de contatos entre as pessoas. Os modelos compartimentais clássicos, derivados do trabalho de Kermack e McKendrick~\cite{kermack1927}, descrevem a epidemia por equações diferenciais sobre populações de suscetíveis, infectados e recuperados e assumem mistura homogênea, isto é, que todo indivíduo tem a mesma chance de contato com qualquer outro. Essa hipótese deixa de fora justamente o que mais diferencia uma epidemia de outra: redes reais têm hubs, aglomerados e poucas conexões entre comunidades, e a topologia altera de forma marcante o limiar epidêmico e o ritmo de propagação~\cite{pastor2015}.
-
-Em escala global, a malha de transporte aéreo é o principal canal de disseminação entre países. Brockmann e Helbing~\cite{brockmann2013} mostram que a chegada de uma epidemia a um país é descrita melhor pela distância efetiva na rede de voos do que pela distância geográfica, o que justifica tratar o problema como um problema de grafos: caminhos mínimos, componentes conexos, pontes e comunidades têm interpretação epidemiológica direta. Medidas como isolamento e vacinação também têm efeitos que variam conforme quem é isolado ou vacinado e conforme o lugar que essa pessoa ocupa na rede.
+Em escala global, a malha de transporte aéreo é o principal canal de disseminação entre países. Brockmann e Helbing~\cite{brockmann2013} mostram que a chegada de uma epidemia a um país é descrita melhor pela distância efetiva na rede de voos do que pela distância geográfica, o que justifica tratar o problema como um problema de grafos: caminhos mínimos, componentes conexos, pontes e comunidades têm interpretação epidemiológica direta. Medidas como isolamento e vacinação também têm efeitos que variam conforme quem é isolado ou vacinado e conforme o lugar que as populações ocupam na rede.
 
 \subsection{Problema e objetivos}
 
-Este trabalho apresenta uma ferramenta computacional para simular e explorar a propagação de doenças em redes, como o Tema~7 (Simulador de Epidemias em Redes) do trabalho prático da disciplina de Teoria dos Grafos. O sistema representa a população mundial por um grafo único e permite ajustar parâmetros como contágio, recuperação, mortalidade e isolamento. Os objetivos são:
+Este trabalho apresenta o desenvolvimento de uma ferramenta computacional para simular e explorar a propagação de doenças em redes. O sistema representa a população mundial por um grafo único e permite ajustar parâmetros como contágio, recuperação, mortalidade e isolamento. Os objetivos são:
 
 \begin{itemize}
   \item simular a propagação de uma epidemia sobre o grafo, com parâmetros definidos pelo usuário antes do início da execução;
@@ -65,7 +53,7 @@ A ferramenta é demonstrativa: o usuário configura o cenário antes de iniciar 
 
 \subsection{Visão geral da solução}
 
-O grafo unificado é construído em três etapas. Cada país recebe um número de vértices (indivíduos) proporcional, de forma sublinear, à sua população, com orçamento total fixo de vértices. Dentro de cada país, os vértices são posicionados no polígono do país e ligados por proximidade geométrica, o que forma uma rede geométrica aleatória. Entre países, as arestas vêm das rotas aéreas do OpenFlights, com peso de contágio derivado do número de rotas. A dinâmica segue um modelo compartimental com os estados S, E, I, R e D, mais as marcações de isolado e vacinado, avançando em passos de um dia. O motor grava o estado de cada vértice a cada passo e a interface apenas reproduz essa linha do tempo, de modo que os fluxos de simulação e de pandemias reais compartilham o mesmo \emph{player}. A aplicação foi escrita em Python com PySide6, sem bibliotecas prontas de grafos. O NetworkX é usado somente no \emph{benchmark} de desempenho, conforme permitido pelo enunciado.
+O grafo unificado é construído em três etapas. Cada país recebe um número de vértices proporcional, de forma sublinear, à sua população, com orçamento total fixo de vértices. No modelo, os vértices são posicionados no polígono de cada país e ligados por proximidade geométrica, o que forma uma rede geométrica aleatória. Entre países, as arestas vêm das rotas aéreas do dataset público OpenFlights, com peso de contágio derivado do número de rotas. A dinâmica segue um modelo compartimental com os estados S, E, I, R e D, mais as marcações de isolado e vacinado, avançando em passos de um dia. O motor grava o estado de cada vértice a cada passo e a interface apenas reproduz essa linha do tempo, de modo que os fluxos de simulação e de pandemias reais compartilham o mesmo \emph{player}. A aplicação foi desenvolvida em Python com PySide6, sem bibliotecas prontas de grafos. O NetworkX é usado somente no \emph{benchmark} de desempenho.
 
 \subsection{Organização do artigo}
 
