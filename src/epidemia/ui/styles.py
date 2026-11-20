@@ -7,7 +7,16 @@ renderização do mapa, funções de formatação numérica pt-BR e folha de est
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtGui import QColor
+
+# Diretório de recursos visuais
+RESOURCES_DIR = Path(__file__).resolve().parent / "resources"
+ARROW_DOWN_PATH = (RESOURCES_DIR / "arrow_down.png").as_posix()
+ARROW_DOWN_DISABLED_PATH = (RESOURCES_DIR / "arrow_down_disabled.png").as_posix()
+ARROW_UP_PATH = (RESOURCES_DIR / "arrow_up.png").as_posix()
+ARROW_DN_PATH = (RESOURCES_DIR / "arrow_dn.png").as_posix()
 
 # ---------------------------------------------------------------------------
 # Paleta geral do tema escuro (Wireframes)
@@ -18,7 +27,7 @@ BG_CARD_HOVER_HEX = "#16252f"
 BORDER_SUBTLE_HEX = "#1c2c36"
 BORDER_LIGHT_HEX = "#283e4d"
 ACCENT_TEAL_HEX = "#4cd7b4"
-ACCENT_TEAL_HOVER_HEX = "#38d9a9"
+ACCENT_TEAL_HOVER_HEX = "#7df8d6"  # Variação mais iluminada e destacada para feedback tátil visual
 TEXT_PRIMARY_HEX = "#e6edf3"
 TEXT_SECONDARY_HEX = "#b0bec5"
 TEXT_MUTED_HEX = "#78909c"
@@ -185,7 +194,7 @@ QPushButton {{
 }}
 
 QPushButton:hover {{
-    background-color: #1e303b;
+    background-color: #1e3542;
     border-color: {BORDER_LIGHT_HEX};
 }}
 
@@ -201,25 +210,57 @@ QPushButton:checked {{
 
 QPushButton#btnPrimary {{
     background-color: {ACCENT_TEAL_HEX};
-    color: #07151a;
-    border: none;
-    font-weight: bold;
+    color: #041014;
+    border: 1px solid {ACCENT_TEAL_HEX};
+    border-radius: 6px;
+    font-weight: 700;
     font-size: 13px;
+    padding: 8px 16px;
 }}
 
 QPushButton#btnPrimary:hover {{
     background-color: {ACCENT_TEAL_HOVER_HEX};
+    border: 1px solid #9efce4;
+    color: #020b0e;
+}}
+
+QPushButton#btnPrimary:pressed {{
+    background-color: #38bfa0;
+    border: 1px solid #38bfa0;
 }}
 
 QPushButton#btnSecondary {{
     background-color: #16232b;
     color: {TEXT_PRIMARY_HEX};
     border: 1px solid {BORDER_SUBTLE_HEX};
+    border-radius: 6px;
 }}
 
 QPushButton#btnSecondary:hover {{
-    background-color: #1e303b;
+    background-color: #1e3542;
     border-color: {ACCENT_TEAL_HEX};
+    color: #ffffff;
+}}
+
+QPushButton#btnLoadConfig {{
+    background-color: #16232b;
+    color: {TEXT_PRIMARY_HEX};
+    border: 1px solid {BORDER_SUBTLE_HEX};
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+}}
+
+QPushButton#btnLoadConfig:hover {{
+    background-color: #1e3542;
+    border: 1px solid {ACCENT_TEAL_HEX};
+    color: {ACCENT_TEAL_HEX};
+}}
+
+QPushButton#btnLoadConfig:pressed {{
+    background-color: #0e181e;
+    border: 1px solid #38bfa0;
 }}
 
 QPushButton#btnDanger {{
@@ -241,9 +282,17 @@ QSlider::groove:horizontal {{
     border-radius: 2px;
 }}
 
+QSlider::groove:horizontal:disabled {{
+    background: #142028;
+}}
+
 QSlider::sub-page:horizontal {{
     background: {ACCENT_TEAL_HEX};
     border-radius: 2px;
+}}
+
+QSlider::sub-page:horizontal:disabled {{
+    background: #1e3831;
 }}
 
 QSlider::handle:horizontal {{
@@ -259,7 +308,11 @@ QSlider::handle:horizontal:hover {{
     background: #ffffff;
 }}
 
-QDoubleSpinBox, QSpinBox, QComboBox, QLineEdit {{
+QSlider::handle:horizontal:disabled {{
+    background: #284c42;
+}}
+
+QLineEdit {{
     background-color: #0b141a;
     border: 1px solid {BORDER_SUBTLE_HEX};
     border-radius: 6px;
@@ -269,13 +322,119 @@ QDoubleSpinBox, QSpinBox, QComboBox, QLineEdit {{
     selection-color: #07151a;
 }}
 
-QDoubleSpinBox:focus, QSpinBox:focus, QComboBox:focus, QLineEdit:focus {{
+QLineEdit:focus {{
     border: 1px solid {ACCENT_TEAL_HEX};
 }}
 
+QLineEdit:disabled {{
+    background-color: #080f14;
+    color: #485b66;
+    border: 1px solid #142028;
+}}
+
+QDoubleSpinBox, QSpinBox {{
+    background-color: #0b141a;
+    border: 1px solid {BORDER_SUBTLE_HEX};
+    border-radius: 6px;
+    padding: 6px 22px 6px 10px;
+    color: #ffffff;
+    selection-background-color: {ACCENT_TEAL_HEX};
+    selection-color: #07151a;
+}}
+
+QDoubleSpinBox:hover, QSpinBox:hover {{
+    border: 1px solid {BORDER_LIGHT_HEX};
+    background-color: #101d26;
+}}
+
+QDoubleSpinBox:focus, QSpinBox:focus {{
+    border: 1px solid {ACCENT_TEAL_HEX};
+}}
+
+QDoubleSpinBox:disabled, QSpinBox:disabled {{
+    background-color: #080f14;
+    color: #485b66;
+    border: 1px solid #142028;
+}}
+
+QDoubleSpinBox::up-button, QSpinBox::up-button {{
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 18px;
+    border-left: 1px solid {BORDER_SUBTLE_HEX};
+    border-bottom: 1px solid {BORDER_SUBTLE_HEX};
+    border-top-right-radius: 5px;
+}}
+
+QDoubleSpinBox::up-button:hover, QSpinBox::up-button:hover {{
+    background-color: #1e3542;
+}}
+
+QDoubleSpinBox::up-arrow, QSpinBox::up-arrow {{
+    image: url({ARROW_UP_PATH});
+    width: 8px;
+    height: 5px;
+}}
+
+QDoubleSpinBox::down-button, QSpinBox::down-button {{
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 18px;
+    border-left: 1px solid {BORDER_SUBTLE_HEX};
+    border-bottom-right-radius: 5px;
+}}
+
+QDoubleSpinBox::down-button:hover, QSpinBox::down-button:hover {{
+    background-color: #1e3542;
+}}
+
+QDoubleSpinBox::down-arrow, QSpinBox::down-arrow {{
+    image: url({ARROW_DN_PATH});
+    width: 8px;
+    height: 5px;
+}}
+
+QComboBox {{
+    background-color: #0b141a;
+    border: 1px solid {BORDER_SUBTLE_HEX};
+    border-radius: 6px;
+    padding: 6px 28px 6px 10px;
+    color: #ffffff;
+    selection-background-color: {ACCENT_TEAL_HEX};
+    selection-color: #07151a;
+}}
+
+QComboBox:hover {{
+    border: 1px solid {ACCENT_TEAL_HEX};
+    background-color: #101d26;
+}}
+
+QComboBox:focus {{
+    border: 1px solid {ACCENT_TEAL_HEX};
+}}
+
+QComboBox:disabled {{
+    background-color: #080f14;
+    color: #485b66;
+    border: 1px solid #142028;
+}}
+
 QComboBox::drop-down {{
-    border: none;
-    width: 20px;
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border-left: none;
+}}
+
+QComboBox::down-arrow {{
+    image: url({ARROW_DOWN_PATH});
+    width: 10px;
+    height: 7px;
+    margin-right: 8px;
+}}
+
+QComboBox::down-arrow:disabled {{
+    image: url({ARROW_DOWN_DISABLED_PATH});
 }}
 
 QComboBox QAbstractItemView {{
@@ -284,6 +443,16 @@ QComboBox QAbstractItemView {{
     selection-background-color: #16333c;
     selection-color: {ACCENT_TEAL_HEX};
     border: 1px solid {BORDER_SUBTLE_HEX};
+}}
+
+QLabel:disabled {{
+    color: #485b66;
+}}
+
+QPushButton:disabled {{
+    background-color: #0d151b;
+    color: #485b66;
+    border: 1px solid #142028;
 }}
 
 QScrollBar:vertical, QScrollBar:horizontal {{

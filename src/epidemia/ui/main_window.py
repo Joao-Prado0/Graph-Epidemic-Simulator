@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMainWindow,
     QMessageBox,
+    QProgressDialog,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -411,19 +412,29 @@ class MainWindow(QMainWindow):
         toolbar = QHBoxLayout()
         toolbar.setSpacing(8)
 
-        btn_zin = QPushButton("+")
+        btn_zin = QPushButton("＋")
+        btn_zin.setObjectName("btnMapZoom")
         btn_zin.setFixedSize(32, 28)
-        btn_zin.setObjectName("btnSecondary")
-        btn_zin.setToolTip("Aproximar mapa")
+        btn_zin.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_zin.setToolTip("Aproximar mapa (Zoom In)")
+        btn_zin.setStyleSheet(
+            "QPushButton#btnMapZoom { padding: 0px; font-size: 15px; font-weight: bold; }"
+        )
 
         btn_zout = QPushButton("−")
+        btn_zout.setObjectName("btnMapZoom")
         btn_zout.setFixedSize(32, 28)
-        btn_zout.setObjectName("btnSecondary")
-        btn_zout.setToolTip("Afastar mapa")
+        btn_zout.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_zout.setToolTip("Afastar mapa (Zoom Out)")
+        btn_zout.setStyleSheet(
+            "QPushButton#btnMapZoom { padding: 0px; font-size: 15px; font-weight: bold; }"
+        )
 
         btn_fit = QPushButton("Ajustar mapa")
         btn_fit.setObjectName("btnSecondary")
+        btn_fit.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_fit.setFixedHeight(28)
+        btn_fit.setToolTip("Enquadrar todo o mapa mundial")
 
         toolbar.addWidget(btn_zin)
         toolbar.addWidget(btn_zout)
@@ -434,21 +445,22 @@ class MainWindow(QMainWindow):
         # Alternador de exibição Mapa vs Curvas em tempo real
         self._btn_toggle_view = QPushButton("Ver curvas (Tela 7)")
         self._btn_toggle_view.setObjectName("btnSecondary")
+        self._btn_toggle_view.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_toggle_view.setFixedHeight(28)
         self._btn_toggle_view.clicked.connect(self._on_toggle_center_view)
         toolbar.addWidget(self._btn_toggle_view)
 
         toolbar.addStretch(1)
 
-        # Legenda SEIRD e Isolados
+        # Legenda dos estados dos vértices com nomes completos
         leg_box = QHBoxLayout()
-        leg_box.setSpacing(8)
+        leg_box.setSpacing(10)
         items = [
-            ("S", COLOR_HEX_SUSCEPTIBLE),
-            ("E", COLOR_HEX_EXPOSED),
-            ("I", COLOR_HEX_INFECTED),
-            ("R", COLOR_HEX_RECOVERED_NAT),
-            ("D", COLOR_HEX_DECEASED),
+            ("Suscetível", COLOR_HEX_SUSCEPTIBLE),
+            ("Exposto", COLOR_HEX_EXPOSED),
+            ("Infectado", COLOR_HEX_INFECTED),
+            ("Recuperado", COLOR_HEX_RECOVERED_NAT),
+            ("Óbito", COLOR_HEX_DECEASED),
             ("Isolado", COLOR_HEX_ISOLATED),
         ]
         for name, color in items:
@@ -456,7 +468,7 @@ class MainWindow(QMainWindow):
             dot.setFixedSize(8, 8)
             dot.setStyleSheet(f"background-color: {color}; border-radius: 4px;")
             lbl = QLabel(name)
-            lbl.setStyleSheet(f"font-size: 11px; color: {TEXT_MUTED_HEX};")
+            lbl.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {TEXT_SECONDARY_HEX};")
             leg_box.addWidget(dot)
             leg_box.addWidget(lbl)
         toolbar.addLayout(leg_box)
@@ -539,9 +551,24 @@ class MainWindow(QMainWindow):
         # Card Comparação Científica (RF14)
         grp_comp = QGroupBox("Comparação científica (RF14)")
         comp_layout = QVBoxLayout(grp_comp)
-        comp_layout.setSpacing(4)
+        comp_layout.setSpacing(6)
 
-        self._lbl_res_comp_status = QLabel("Indisponível (nenhuma pandemia real carregada)")
+        lbl_comp_info = QLabel("Compara a curva simulada com dados de uma pandemia real:")
+        lbl_comp_info.setStyleSheet(f"font-size: 11px; color: {TEXT_MUTED_HEX};")
+        lbl_comp_info.setWordWrap(True)
+        comp_layout.addWidget(lbl_comp_info)
+
+        self._combo_comp_pandemic = QComboBox()
+        self._combo_comp_pandemic.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._combo_comp_pandemic.addItem("Selecionar pandemia para comparar...", None)
+        self._combo_comp_pandemic.addItem("COVID-19 (data/processed/covid19.csv)", "covid19")
+        self._combo_comp_pandemic.addItem("Ebola (data/processed/ebola.csv)", "ebola")
+        self._combo_comp_pandemic.addItem("H1N1 (data/processed/h1n1.csv)", "h1n1")
+        self._combo_comp_pandemic.addItem("SARS (data/processed/sars.csv)", "sars")
+        self._combo_comp_pandemic.currentIndexChanged.connect(self._on_comp_pandemic_selected)
+        comp_layout.addWidget(self._combo_comp_pandemic)
+
+        self._lbl_res_comp_status = QLabel("Nenhuma pandemia real selecionada")
         self._lbl_res_comp_status.setWordWrap(True)
         self._lbl_res_comp_status.setStyleSheet(
             "color: #78909c; font-style: italic; font-size: 11px;"
@@ -1167,6 +1194,21 @@ class MainWindow(QMainWindow):
             self._session.configure(config)
 
     def _on_start_simulation(self, config: SimulationConfig, patient_zero: Any) -> None:
+        progress = QProgressDialog(
+            "Preparando rede e calculando simulação epidêmica...\n"
+            "Por favor, aguarde alguns instantes.",
+            "",
+            0,
+            0,
+            self,
+        )
+        progress.setWindowTitle("Simulador de Epidemias")
+        progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+        progress.show()
+        QApplication.processEvents()
+
         try:
             if self._sim_thread.isRunning():
                 self._sim_thread.stop()
@@ -1210,6 +1252,8 @@ class MainWindow(QMainWindow):
 
         except EpidemiaError as exc:
             self.show_error_dialog("Erro ao Iniciar Simulação", str(exc))
+        finally:
+            progress.close()
 
     def _on_day_recorded(self, day: int) -> None:
         timeline = self._session.timeline()
@@ -1377,6 +1421,25 @@ class MainWindow(QMainWindow):
             self._lbl_res_comp_peak_diff.setText("• Dif. Pico Novos/Dia: --")
             self._lbl_res_comp_final_diff.setText("• Dif. Tamanho Final: --")
             self._lbl_real_comp_summary.setText(msg)
+
+    def _on_comp_pandemic_selected(self, index: int) -> None:
+        p_id = self._combo_comp_pandemic.currentData()
+        if not p_id:
+            self._lbl_res_comp_status.setText("Nenhuma pandemia real selecionada")
+            self._lbl_res_comp_status.setStyleSheet("color: #78909c; font-style: italic;")
+            self._update_comparison_metrics()
+            return
+        try:
+            self._real_session.load_pandemic(str(p_id))
+            self._update_comparison_metrics()
+        except FileNotFoundError:
+            self._lbl_res_comp_status.setText(
+                f"Arquivo '{p_id}.csv' não encontrado em data/processed/."
+            )
+            self._lbl_res_comp_status.setStyleSheet("color: #ef5350; font-size: 11px;")
+        except Exception as exc:
+            self._lbl_res_comp_status.setText(f"Erro ao carregar ({exc})")
+            self._lbl_res_comp_status.setStyleSheet("color: #ef5350; font-size: 11px;")
 
     def _reset_epidemic_summary_labels(self) -> None:
         self._lbl_res_active_big.setText("0")

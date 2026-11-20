@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
@@ -105,6 +106,7 @@ class InterventionCard(QFrame):
         self._lbl_vaccination.setStyleSheet(f"font-size: 11px; color: {TEXT_SECONDARY_HEX};")
         layout.addWidget(self._lbl_vaccination)
 
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._update_style()
 
     def set_active(self, active: bool) -> None:
@@ -222,10 +224,12 @@ class ConfigPanel(QWidget):
         self._spin_r0.setRange(0.1, 20.0)
         self._spin_r0.setSingleStep(0.1)
         self._spin_r0.setValue(2.5)
+        self._spin_r0.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._slider_r0 = QSlider(Qt.Orientation.Horizontal)
         self._slider_r0.setRange(1, 200)
         self._slider_r0.setValue(25)
+        self._slider_r0.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._spin_r0.valueChanged.connect(self._on_spin_r0_changed)
         self._slider_r0.valueChanged.connect(self._on_slider_r0_changed)
@@ -234,25 +238,45 @@ class ConfigPanel(QWidget):
         r0_box.addWidget(self._slider_r0, stretch=1)
         layout.addLayout(r0_box)
 
-        # Faixa de status de calibração de beta
+        # Faixa de status de calibração de beta com botão de calibração integrado
         self._beta_card = QFrame()
+        self._beta_card.setObjectName("betaCard")
         self._beta_card.setStyleSheet(
-            f"background-color: #0b141a; border: 1px solid {BORDER_SUBTLE_HEX};"
-            f"border-radius: 6px; padding: 6px;"
+            f"QFrame#betaCard {{"
+            f"  background-color: #0b171e;"
+            f"  border: 1px solid #1c3545;"
+            f"  border-left: 3px solid {ACCENT_TEAL_HEX};"
+            f"  border-radius: 6px;"
+            f"}}"
         )
         beta_layout = QVBoxLayout(self._beta_card)
-        beta_layout.setContentsMargins(8, 6, 8, 6)
-        beta_layout.setSpacing(2)
+        beta_layout.setContentsMargins(10, 8, 10, 8)
+        beta_layout.setSpacing(4)
 
-        lbl_beta_hdr = QLabel("Taxa de transmissão (β) e verificação analítica:")
-        lbl_beta_hdr.setStyleSheet(f"font-size: 11px; color: {TEXT_MUTED_HEX};")
+        beta_header_box = QHBoxLayout()
+        beta_header_box.setSpacing(8)
+        lbl_beta_hdr = QLabel("Taxa de transmissão (β):")
+        lbl_beta_hdr.setStyleSheet(f"font-size: 11px; color: {TEXT_MUTED_HEX}; font-weight: bold;")
+        beta_header_box.addWidget(lbl_beta_hdr)
+        beta_header_box.addStretch(1)
+
+        self._btn_calibrate = QPushButton("Calibrar β")
+        self._btn_calibrate.setObjectName("btnPrimary")
+        self._btn_calibrate.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_calibrate.setFixedHeight(26)
+        self._btn_calibrate.setStyleSheet(
+            "QPushButton#btnPrimary {  font-size: 11px; padding: 2px 10px; font-weight: bold;}"
+        )
+        self._btn_calibrate.clicked.connect(self._on_calibrate_clicked)
+        beta_header_box.addWidget(self._btn_calibrate)
+        beta_layout.addLayout(beta_header_box)
+
         self._lbl_calibrated_beta = QLabel("β: Calibração pendente")
         self._lbl_calibrated_beta.setStyleSheet(
-            f"font-size: 12px; font-weight: bold; color: {ACCENT_TEAL_HEX};"
+            f"font-size: 13px; font-weight: bold; color: {ACCENT_TEAL_HEX};"
         )
         self._lbl_calibration_details = QLabel("R₀ empírico: -- · R₀ Newman: --")
         self._lbl_calibration_details.setStyleSheet(f"font-size: 11px; color: {TEXT_MUTED_HEX};")
-        beta_layout.addWidget(lbl_beta_hdr)
         beta_layout.addWidget(self._lbl_calibrated_beta)
         beta_layout.addWidget(self._lbl_calibration_details)
         layout.addWidget(self._beta_card)
@@ -264,10 +288,12 @@ class ConfigPanel(QWidget):
         self._spin_gamma.setRange(0.01, 2.0)
         self._spin_gamma.setSingleStep(0.01)
         self._spin_gamma.setValue(0.10)
+        self._spin_gamma.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._slider_gamma = QSlider(Qt.Orientation.Horizontal)
         self._slider_gamma.setRange(1, 100)  # 0.01 a 1.00
         self._slider_gamma.setValue(10)
+        self._slider_gamma.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._spin_gamma.valueChanged.connect(self._on_spin_gamma_changed)
         self._slider_gamma.valueChanged.connect(self._on_slider_gamma_changed)
@@ -286,10 +312,12 @@ class ConfigPanel(QWidget):
         self._spin_mortality.setRange(0.0, 1.0)
         self._spin_mortality.setSingleStep(0.01)
         self._spin_mortality.setValue(0.02)
+        self._spin_mortality.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._slider_mortality = QSlider(Qt.Orientation.Horizontal)
         self._slider_mortality.setRange(0, 100)  # 0% a 100%
         self._slider_mortality.setValue(2)
+        self._slider_mortality.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._spin_mortality.valueChanged.connect(self._on_spin_mortality_changed)
         self._slider_mortality.valueChanged.connect(self._on_slider_mortality_changed)
@@ -305,10 +333,12 @@ class ConfigPanel(QWidget):
         self._spin_incubation.setRange(0.5, 30.0)
         self._spin_incubation.setSingleStep(0.5)
         self._spin_incubation.setValue(4.0)
+        self._spin_incubation.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._slider_incubation = QSlider(Qt.Orientation.Horizontal)
         self._slider_incubation.setRange(1, 14)  # 1 a 14 dias
         self._slider_incubation.setValue(4)
+        self._slider_incubation.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._spin_incubation.valueChanged.connect(self._on_spin_incubation_changed)
         self._slider_incubation.valueChanged.connect(self._on_slider_incubation_changed)
@@ -348,6 +378,7 @@ class ConfigPanel(QWidget):
         for b in lvl_buttons:
             b.setCheckable(True)
             b.setFixedHeight(30)
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
             lvl_btn_box.addWidget(b)
 
         self._btn_lvl_baixo.clicked.connect(lambda: self._select_intervention_level("baixo"))
@@ -374,23 +405,36 @@ class ConfigPanel(QWidget):
         layout.addWidget(self._card_medio)
         layout.addWidget(self._card_alto)
 
-        # Pill / Card com eficácia da vacina lida diretamente de DEFAULT_VACCINE_EFFICACY (M3)
+        # Badge informativo com eficácia da vacina lida de DEFAULT_VACCINE_EFFICACY (M3)
         card_vac = QFrame()
+        card_vac.setObjectName("vacInfoCard")
         card_vac.setStyleSheet(
-            f"background-color: #0b141a; border: 1px solid {BORDER_SUBTLE_HEX};"
-            f"border-radius: 6px; padding: 6px;"
+            f"QFrame#vacInfoCard {{"
+            f"  background-color: transparent;"
+            f"  border: 1px dashed {BORDER_LIGHT_HEX};"
+            f"  border-radius: 6px;"
+            f"}}"
         )
-        vac_layout = QVBoxLayout(card_vac)
-        vac_layout.setContentsMargins(8, 6, 8, 6)
-        vac_layout.setSpacing(2)
+        vac_layout = QHBoxLayout(card_vac)
+        vac_layout.setContentsMargins(10, 8, 10, 8)
+        vac_layout.setSpacing(8)
 
+        lbl_vac_icon = QLabel("🔒")
+        lbl_vac_icon.setStyleSheet("font-size: 13px; color: #78909c;")
+        vac_layout.addWidget(lbl_vac_icon)
+
+        vac_text_box = QVBoxLayout()
+        vac_text_box.setSpacing(1)
         eff_pct = format_percent_br(DEFAULT_VACCINE_EFFICACY, decimals=0)
-        lbl_vac_hdr = QLabel("Eficácia da vacina:")
+        lbl_vac_hdr = QLabel("Eficácia da vacina (constante):")
         lbl_vac_hdr.setStyleSheet(f"font-size: 11px; color: {TEXT_MUTED_HEX};")
-        lbl_vac_val = QLabel(f"{eff_pct} (fixo no modelo)")
-        lbl_vac_val.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {ACCENT_TEAL_HEX};")
-        vac_layout.addWidget(lbl_vac_hdr)
-        vac_layout.addWidget(lbl_vac_val)
+        lbl_vac_val = QLabel(f"{eff_pct} — fixo na modelagem matemática")
+        lbl_vac_val.setStyleSheet(
+            f"font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY_HEX};"
+        )
+        vac_text_box.addWidget(lbl_vac_hdr)
+        vac_text_box.addWidget(lbl_vac_val)
+        vac_layout.addLayout(vac_text_box, stretch=1)
         layout.addWidget(card_vac)
 
         # Armazena nível atual (default baixo)
@@ -416,6 +460,8 @@ class ConfigPanel(QWidget):
         self._btn_scen_regional.setCheckable(True)
         self._btn_scen_global.setFixedHeight(30)
         self._btn_scen_regional.setFixedHeight(30)
+        self._btn_scen_global.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_scen_regional.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._btn_scen_global.clicked.connect(lambda: self._set_scenario("global"))
         self._btn_scen_regional.clicked.connect(lambda: self._set_scenario("regional_ebola"))
@@ -433,8 +479,10 @@ class ConfigPanel(QWidget):
         self._spin_seed = QSpinBox()
         self._spin_seed.setRange(0, 999999)
         self._spin_seed.setValue(42)
+        self._spin_seed.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._btn_random_seed = QPushButton("Gerar aleatória")
+        self._btn_random_seed.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_random_seed.clicked.connect(self._on_generate_random_seed)
 
         seed_box.addWidget(self._spin_seed)
@@ -445,18 +493,41 @@ class ConfigPanel(QWidget):
         layout.addWidget(QLabel("Paciente zero:"))
         self._combo_pz_mode = QComboBox()
         self._combo_pz_mode.addItems(["Aleatório", "Manual (País e Vértice)"])
+        self._combo_pz_mode.setCursor(Qt.CursorShape.PointingHandCursor)
         self._combo_pz_mode.currentIndexChanged.connect(self._on_pz_mode_changed)
         layout.addWidget(self._combo_pz_mode)
 
-        # Painel manual do paciente zero
+        # Aviso explicativo do modo aleatório (para deixar claro que não há inputs bloqueados)
+        self._lbl_pz_disabled_notice = QLabel(
+            "🔒 Modo aleatório ativo: o país e o vértice do paciente zero "
+            "serão sorteados automaticamente ao iniciar a simulação."
+        )
+        self._lbl_pz_disabled_notice.setWordWrap(True)
+        self._lbl_pz_disabled_notice.setStyleSheet(
+            f"font-size: 11px; color: {TEXT_MUTED_HEX}; background-color: #091218; "
+            f"border: 1px dashed {BORDER_SUBTLE_HEX}; border-radius: 6px; padding: 10px;"
+        )
+        layout.addWidget(self._lbl_pz_disabled_notice)
+
+        # Painel manual do paciente zero (visível apenas quando Manual)
         self._pz_manual_frame = QFrame()
+        self._pz_manual_frame.setObjectName("pzManualFrame")
+        self._pz_manual_frame.setStyleSheet(
+            "QFrame#pzManualFrame {"
+            "  background-color: #0c161d;"
+            "  border: 1px solid #1c3545;"
+            "  border-radius: 6px;"
+            "  padding: 6px;"
+            "}"
+        )
         pz_m_layout = QVBoxLayout(self._pz_manual_frame)
-        pz_m_layout.setContentsMargins(0, 2, 0, 2)
+        pz_m_layout.setContentsMargins(4, 4, 4, 4)
         pz_m_layout.setSpacing(6)
 
         country_box = QHBoxLayout()
         country_box.addWidget(QLabel("País:"))
         self._combo_pz_country = QComboBox()
+        self._combo_pz_country.setCursor(Qt.CursorShape.PointingHandCursor)
         self._combo_pz_country.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
         )
@@ -470,6 +541,7 @@ class ConfigPanel(QWidget):
         self._spin_pz_vertex = QSpinBox()
         self._spin_pz_vertex.setRange(0, 999999)
         self._spin_pz_vertex.setValue(0)
+        self._spin_pz_vertex.setCursor(Qt.CursorShape.PointingHandCursor)
         self._spin_pz_vertex.valueChanged.connect(self._on_pz_vertex_changed)
 
         self._edit_patient_zero = QLineEdit()
@@ -480,10 +552,12 @@ class ConfigPanel(QWidget):
         pz_m_layout.addLayout(vertex_box)
 
         self._btn_pick_random_vertex = QPushButton("Sortear vértice no país")
+        self._btn_pick_random_vertex.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_pick_random_vertex.clicked.connect(self._on_pick_random_vertex)
         pz_m_layout.addWidget(self._btn_pick_random_vertex)
 
         self._pz_manual_frame.setEnabled(False)
+        self._pz_manual_frame.setVisible(False)
         layout.addWidget(self._pz_manual_frame)
 
         # Indicador visual do paciente zero
@@ -502,31 +576,32 @@ class ConfigPanel(QWidget):
 
         self._btn_back = QPushButton("Voltar")
         self._btn_back.setObjectName("btnSecondary")
+        self._btn_back.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_back.clicked.connect(self.back_requested.emit)
-
-        self._btn_calibrate = QPushButton("Calibrar β")
-        self._btn_calibrate.setObjectName("btnSecondary")
-        self._btn_calibrate.clicked.connect(self._on_calibrate_clicked)
 
         self._btn_save = QPushButton("Salvar configuração")
         self._btn_save.setObjectName("btnSecondary")
+        self._btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_save.clicked.connect(self._on_save_clicked)
 
         self._btn_load = QPushButton("Carregar configuração")
         self._btn_load.setObjectName("btnSecondary")
+        self._btn_load.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_load.clicked.connect(self._on_load_clicked)
 
         self._btn_start = QPushButton("Iniciar simulação")
         self._btn_start.setObjectName("btnPrimary")
+        self._btn_start.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_start.setMinimumHeight(38)
         self._btn_start.clicked.connect(self._on_start_clicked)
 
         footer.addWidget(self._btn_back)
-        footer.addWidget(self._btn_calibrate)
         footer.addWidget(self._btn_save)
         footer.addWidget(self._btn_load)
         footer.addStretch(1)
         footer.addWidget(self._btn_start)
+
+        return footer
 
         return footer
 
@@ -602,6 +677,8 @@ class ConfigPanel(QWidget):
     def _on_pz_mode_changed(self, index: int) -> None:
         is_manual = index == 1
         self._pz_manual_frame.setEnabled(is_manual)
+        self._pz_manual_frame.setVisible(is_manual)
+        self._lbl_pz_disabled_notice.setVisible(not is_manual)
         self._update_pz_indicator()
 
     def _on_pz_country_changed(self, _index: int) -> None:
@@ -647,7 +724,7 @@ class ConfigPanel(QWidget):
 
     def _update_pz_indicator(self) -> None:
         if self._combo_pz_mode.currentIndex() == 0:
-            self._lbl_pz_indicator.setText("Paciente zero: Aleatório (sorteio no início)")
+            self._lbl_pz_indicator.setText("🎲 Paciente zero: Aleatório (sorteio no início)")
         else:
             v_id = self._spin_pz_vertex.value()
             if self._world is not None and 0 <= v_id < len(self._world.vertex_country):
@@ -656,7 +733,9 @@ class ConfigPanel(QWidget):
                 country = f"{c_name} ({iso3})"
             else:
                 country = self._combo_pz_country.currentText() or "Grafo"
-            self._lbl_pz_indicator.setText(f"Paciente zero: Vértice #{v_id:04d} ({country})")
+            self._lbl_pz_indicator.setText(
+                f"🎯 Paciente zero fixado: Vértice #{v_id:04d} ({country})"
+            )
 
     # --- Métodos públicos da API da UI ---
 
@@ -823,11 +902,17 @@ class ConfigPanel(QWidget):
             QMessageBox.warning(self, "Erro de Configuração", str(exc))
 
     def _on_start_clicked(self) -> None:
+        self._btn_start.setText("Iniciando simulação...")
+        self._btn_start.setEnabled(False)
+        QApplication.processEvents()
         try:
             cfg = self.get_simulation_config()
             self.start_requested.emit(cfg, cfg.patient_zero)
         except EpidemiaError as exc:
             QMessageBox.warning(self, "Erro de Configuração", str(exc))
+        finally:
+            self._btn_start.setText("Iniciar simulação")
+            self._btn_start.setEnabled(True)
 
     def _on_save_clicked(self) -> None:
         try:

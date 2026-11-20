@@ -6,8 +6,18 @@ visuais dedicados, além do atalho para carregamento prévio de configuração J
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QPainter, QPen
+from pathlib import Path
+
+from PySide6.QtCore import QPointF, Qt, Signal
+from PySide6.QtGui import (
+    QBrush,
+    QColor,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+    QRadialGradient,
+)
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -21,6 +31,7 @@ from epidemia.ui.styles import (
     ACCENT_TEAL_HEX,
     BG_CARD_HEX,
     BORDER_SUBTLE_HEX,
+    RESOURCES_DIR,
     TEXT_MUTED_HEX,
     TEXT_PRIMARY_HEX,
     TEXT_SECONDARY_HEX,
@@ -28,7 +39,7 @@ from epidemia.ui.styles import (
 
 
 class MiniNetworkPreview(QWidget):
-    """Mini visual representativo de rede para o card de simulação."""
+    """Mini visual representativo de rede com gradientes e propagação para o card de simulação."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -38,48 +49,92 @@ class MiniNetworkPreview(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-        w = self.width()
-        h = self.height()
+        w = float(self.width())
+        h = float(self.height())
 
+        # Verifica se há imagem externa customizada fornecida pelo usuário
+        custom_img = Path(RESOURCES_DIR) / "card_simulation.png"
+        if custom_img.is_file():
+            pix = QPixmap(str(custom_img))
+            if not pix.isNull():
+                scaled = pix.scaled(
+                    int(w),
+                    int(h),
+                    Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                painter.drawPixmap(0, 0, scaled)
+                return
+
+        # Fundo sutil com gradiente radial
+        grad_bg = QRadialGradient(w * 0.5, h * 0.5, w * 0.45)
+        grad_bg.setColorAt(0.0, QColor(22, 45, 52, 120))
+        grad_bg.setColorAt(1.0, QColor(17, 29, 37, 0))
+        painter.fillRect(0, 0, int(w), int(h), grad_bg)
+
+        # Rede com perspectiva e nós em múltiplos compartimentos SEIR
         nodes = [
-            (w * 0.15, h * 0.45, "#4cd7b4"),
-            (w * 0.32, h * 0.20, "#4cd7b4"),
-            (w * 0.48, h * 0.35, "#e53935"),  # Paciente zero / infectado
-            (w * 0.65, h * 0.22, "#4cd7b4"),
-            (w * 0.82, h * 0.50, "#4cd7b4"),
-            (w * 0.35, h * 0.75, "#4cd7b4"),
-            (w * 0.60, h * 0.70, "#4cd7b4"),
+            (w * 0.12, h * 0.65, "#4cd7b4", 4.5),
+            (w * 0.22, h * 0.32, "#4cd7b4", 5.0),
+            (w * 0.38, h * 0.22, "#26c6da", 4.5),
+            (w * 0.50, h * 0.48, "#e53935", 7.5),  # Paciente Zero (Infectado)
+            (w * 0.62, h * 0.24, "#ffb300", 5.0),  # Exposto
+            (w * 0.78, h * 0.38, "#4cd7b4", 4.5),
+            (w * 0.88, h * 0.68, "#26c6da", 5.0),  # Vacinado / Recuperado
+            (w * 0.32, h * 0.78, "#4cd7b4", 4.5),
+            (w * 0.68, h * 0.75, "#ffb300", 5.0),
+            (w * 0.50, h * 0.88, "#4cd7b4", 4.0),
         ]
 
         edges = [
             (0, 1),
-            (0, 5),
+            (0, 7),
             (1, 2),
             (1, 3),
+            (1, 7),
             (2, 3),
-            (2, 5),
-            (2, 6),
+            (2, 4),
             (3, 4),
-            (4, 6),
+            (3, 7),
+            (3, 8),
+            (4, 5),
+            (4, 8),
             (5, 6),
+            (5, 8),
+            (6, 8),
+            (7, 9),
+            (8, 9),
+            (3, 9),
         ]
 
-        pen_edge = QPen(QColor("#224647"), 1.5)
-        painter.setPen(pen_edge)
+        # Arestas da rede
         for u, v in edges:
             p1 = nodes[u]
             p2 = nodes[v]
-            painter.drawLine(int(p1[0]), int(p1[1]), int(p2[0]), int(p2[1]))
+            is_inf = u == 3 or v == 3
+            col = QColor(229, 57, 53, 90) if is_inf else QColor(42, 102, 89, 130)
+            width = 1.6 if is_inf else 1.2
+            painter.setPen(QPen(col, width))
+            painter.drawLine(QPointF(p1[0], p1[1]), QPointF(p2[0], p2[1]))
 
-        for x, y, col in nodes:
-            painter.setPen(Qt.PenStyle.NoPen)
+        # Halo de dispersão em torno do paciente zero
+        halo = QRadialGradient(nodes[3][0], nodes[3][1], 24)
+        halo.setColorAt(0.0, QColor(229, 57, 53, 90))
+        halo.setColorAt(0.5, QColor(229, 57, 53, 30))
+        halo.setColorAt(1.0, QColor(229, 57, 53, 0))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(halo)
+        painter.drawEllipse(QPointF(nodes[3][0], nodes[3][1]), 24, 24)
+
+        # Nós com borda e preenchimento SEIR
+        for x, y, col, r in nodes:
+            painter.setPen(QPen(QColor("#0b141a"), 1.5))
             painter.setBrush(QBrush(QColor(col)))
-            r = 5 if col != "#e53935" else 6.5
-            painter.drawEllipse(int(x - r), int(y - r), int(2 * r), int(2 * r))
+            painter.drawEllipse(QPointF(x, y), r, r)
 
 
 class MiniHeatmapPreview(QWidget):
-    """Mini visual de intensidade para o card de pandemias reais."""
+    """Mini visual de intensidade com mapa coroplético térmico para pandemias reais."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -89,23 +144,114 @@ class MiniHeatmapPreview(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-        w = self.width()
-        h = self.height()
+        w = float(self.width())
+        h = float(self.height())
 
-        blocks = [
-            (w * 0.10, h * 0.25, 45, 30, "#cb181d"),
-            (w * 0.22, h * 0.20, 70, 40, "#fb6a4a"),
-            (w * 0.26, h * 0.55, 55, 45, "#fc9272"),
-            (w * 0.46, h * 0.25, 40, 30, "#cb181d"),
-            (w * 0.52, h * 0.40, 50, 45, "#ef3b2c"),
-            (w * 0.65, h * 0.20, 80, 45, "#99000d"),
-            (w * 0.72, h * 0.60, 55, 35, "#fcbba1"),
+        # Verifica se há imagem externa customizada fornecida pelo usuário
+        custom_img = Path(RESOURCES_DIR) / "card_pandemics.png"
+        if custom_img.is_file():
+            pix = QPixmap(str(custom_img))
+            if not pix.isNull():
+                scaled = pix.scaled(
+                    int(w),
+                    int(h),
+                    Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                painter.drawPixmap(0, 0, scaled)
+                return
+
+        # Fundo térmico sutil
+        grad_bg = QRadialGradient(w * 0.5, h * 0.5, w * 0.45)
+        grad_bg.setColorAt(0.0, QColor(32, 20, 24, 100))
+        grad_bg.setColorAt(1.0, QColor(17, 29, 37, 0))
+        painter.fillRect(0, 0, int(w), int(h), grad_bg)
+
+        # Linhas pontilhadas do grid geográfico
+        painter.setPen(QPen(QColor("#1a2933"), 1, Qt.PenStyle.DotLine))
+        for y_pct in (0.28, 0.52, 0.76):
+            painter.drawLine(15, int(h * y_pct), int(w - 15), int(h * y_pct))
+
+        # Silhuetas dos continentes (polígonos simplificados em estilo dashboard de inteligência)
+        continents = [
+            # América do Norte
+            [
+                (w * 0.14, h * 0.22),
+                (w * 0.28, h * 0.20),
+                (w * 0.30, h * 0.38),
+                (w * 0.20, h * 0.48),
+                (w * 0.12, h * 0.35),
+            ],
+            # América do Sul
+            [
+                (w * 0.24, h * 0.54),
+                (w * 0.32, h * 0.56),
+                (w * 0.28, h * 0.84),
+                (w * 0.22, h * 0.74),
+            ],
+            # Europa
+            [
+                (w * 0.44, h * 0.22),
+                (w * 0.54, h * 0.20),
+                (w * 0.52, h * 0.36),
+                (w * 0.42, h * 0.34),
+            ],
+            # África
+            [
+                (w * 0.44, h * 0.42),
+                (w * 0.56, h * 0.42),
+                (w * 0.54, h * 0.74),
+                (w * 0.46, h * 0.70),
+            ],
+            # Ásia
+            [
+                (w * 0.58, h * 0.18),
+                (w * 0.82, h * 0.20),
+                (w * 0.84, h * 0.46),
+                (w * 0.68, h * 0.52),
+                (w * 0.56, h * 0.38),
+            ],
+            # Oceania
+            [
+                (w * 0.76, h * 0.66),
+                (w * 0.86, h * 0.66),
+                (w * 0.84, h * 0.82),
+                (w * 0.74, h * 0.80),
+            ],
         ]
 
-        for x, y, bw, bh, col in blocks:
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QBrush(QColor(col)))
-            painter.drawRoundedRect(int(x), int(y), int(bw), int(bh), 4, 4)
+        painter.setPen(QPen(QColor("#1f3342"), 1.2))
+        painter.setBrush(QBrush(QColor("#14222c")))
+        for poly in continents:
+            path = QPainterPath()
+            path.moveTo(poly[0][0], poly[0][1])
+            for pt in poly[1:]:
+                path.lineTo(pt[0], pt[1])
+            path.closeSubpath()
+            painter.drawPath(path)
+
+        # Focos de calor de surtos históricos com gradiente radial térmico
+        hotspots = [
+            (w * 0.70, h * 0.36, 32.0, "#ef5350"),  # Ásia (COVID-19 / SARS)
+            (w * 0.48, h * 0.28, 26.0, "#e53935"),  # Europa (Milão / H1N1)
+            (w * 0.25, h * 0.32, 28.0, "#ff7043"),  # América do Norte
+            (w * 0.27, h * 0.65, 22.0, "#ff9800"),  # América do Sul
+            (w * 0.50, h * 0.54, 20.0, "#e53935"),  # África Ocidental (Ebola)
+        ]
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        for hx, hy, rad, col_hex in hotspots:
+            spot = QRadialGradient(hx, hy, rad)
+            base = QColor(col_hex)
+            spot.setColorAt(0.0, QColor(base.red(), base.green(), base.blue(), 180))
+            spot.setColorAt(0.4, QColor(base.red(), base.green(), base.blue(), 90))
+            spot.setColorAt(1.0, QColor(base.red(), base.green(), base.blue(), 0))
+            painter.setBrush(spot)
+            painter.drawEllipse(QPointF(hx, hy), rad, rad)
+            # Núcleo pontual do epicentro
+            core_col = QColor("#ffffff" if col_hex == "#e53935" else col_hex)
+            painter.setBrush(QBrush(core_col))
+            painter.drawEllipse(QPointF(hx, hy), 2.5, 2.5)
 
 
 class StartScreen(QWidget):
@@ -179,11 +325,10 @@ class StartScreen(QWidget):
         bottom_layout.setSpacing(8)
 
         btn_load_json = QPushButton("Carregar configuração JSON")
+        btn_load_json.setObjectName("btnLoadConfig")
+        btn_load_json.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_load_json.setMinimumWidth(260)
-        btn_load_json.setStyleSheet(
-            f"background-color: #16232b; color: {TEXT_PRIMARY_HEX}; "
-            f"border: 1px solid {BORDER_SUBTLE_HEX}; padding: 10px 20px; font-size: 13px;"
-        )
+        btn_load_json.setFixedHeight(40)
         btn_load_json.clicked.connect(self.load_config.emit)
         bottom_layout.addWidget(btn_load_json, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -196,10 +341,11 @@ class StartScreen(QWidget):
 
     def _create_simulation_card(self) -> QFrame:
         card = QFrame()
+        card.setObjectName("cardSim")
         card.setFixedSize(460, 360)
         card.setStyleSheet(
-            f"background-color: {BG_CARD_HEX}; border: 1px solid {BORDER_SUBTLE_HEX}; "
-            f"border-radius: 12px;"
+            f"QFrame#cardSim {{ background-color: {BG_CARD_HEX}; "
+            f"border: 1px solid {BORDER_SUBTLE_HEX}; border-radius: 12px; }}"
         )
         layout = QVBoxLayout(card)
         layout.setContentsMargins(24, 20, 24, 20)
@@ -244,10 +390,11 @@ class StartScreen(QWidget):
 
     def _create_real_card(self) -> QFrame:
         card = QFrame()
+        card.setObjectName("cardReal")
         card.setFixedSize(460, 360)
         card.setStyleSheet(
-            f"background-color: {BG_CARD_HEX}; border: 1px solid {BORDER_SUBTLE_HEX}; "
-            f"border-radius: 12px;"
+            f"QFrame#cardReal {{ background-color: {BG_CARD_HEX}; "
+            f"border: 1px solid {BORDER_SUBTLE_HEX}; border-radius: 12px; }}"
         )
         layout = QVBoxLayout(card)
         layout.setContentsMargins(24, 20, 24, 20)
@@ -282,7 +429,7 @@ class StartScreen(QWidget):
         layout.addStretch(1)
 
         btn_open = QPushButton("Abrir fluxo ->")
-        btn_open.setObjectName("btnSecondary")
+        btn_open.setObjectName("btnPrimary")
         btn_open.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_open.setFixedHeight(40)
         btn_open.clicked.connect(self.open_real_pandemics.emit)
