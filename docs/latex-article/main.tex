@@ -9,23 +9,14 @@
      
 \sloppy
 
-\title{Instructions for Authors of SBC Conferences\\ Papers and Abstracts}
+\title{Simulação Estocástica de Epidemias Globais em Grafos Multiescala: Modelagem, Algoritmos e Validação Empírica}
 
-\author{Luciana P. Nedel\inst{1}, Rafael H. Bordini\inst{2}, Flávio Rech
-  Wagner\inst{1}, Jomi F. Hübner\inst{3} }
+\author{João Prado Campos\inst{1}, Fillipe Gabriel Costa Araujo\inst{1}, Daniel Bony Costa Garcia\inst{1},\\
+Henrique Pereira Resende Rocha\inst{1}, Luiz Felipe Ribeiro Souza\inst{1}}
 
-
-\address{Instituto de Informática -- Universidade Federal do Rio Grande do Sul
-  (UFRGS)\\
-  Caixa Postal 15.064 -- 91.501-970 -- Porto Alegre -- RS -- Brazil
-\nextinstitute
-  Department of Computer Science -- University of Durham\\
-  Durham, U.K.
-\nextinstitute
-  Departamento de Sistemas e Computação\\
-  Universidade Regional de Blumenal (FURB) -- Blumenau, SC -- Brazil
-  \email{\{nedel,flavio\}@inf.ufrgs.br, R.Bordini@durham.ac.uk,
-  jomi@inf.furb.br}
+\address{Instituto de Ciências Exatas e Informática\\
+  Pontifícia Universidade Católica de Minas Gerais (PUC Minas)\\
+  Belo Horizonte -- MG -- Brasil
 }
 
 \begin{document} 
@@ -51,7 +42,7 @@
 \end{resumo}
 
 
-\section{General Information}
+\section{Introdução e Contextualização}
 
 All full papers and posters (short papers) submitted to some SBC conference,
 including any supporting documents, should be written in English or in
@@ -63,7 +54,7 @@ points of space before each paragraph. Page numbers must be suppressed.
 Full papers must respect the page limits defined by the conference.
 Conferences that publish just abstracts ask for \textbf{one}-page texts.
 
-\section{First Page} \label{sec:firstpage}
+\section{Modelagem Teórica do Grafo e Arquitetura UML} \label{sec:firstpage}
 
 The first page must display the paper title, the name and address of the
 authors, the abstract in English and ``resumo'' in Portuguese (``resumos'' are
@@ -80,7 +71,7 @@ The abstract and ``resumo'' (if is the case) must be in 12 point Times font,
 indented 0.8cm on both sides. The word \textbf{Abstract} and \textbf{Resumo},
 should be written in boldface and must precede the text.
 
-\section{CD-ROMs and Printed Proceedings}
+\section{Estruturas de Dados e Algoritmos de Grafos}
 
 In some conferences, the papers are published on CD-ROM while only the
 abstract is published in the printed Proceedings. In this case, authors are
@@ -88,7 +79,7 @@ invited to prepare two final versions of the paper. One, complete, to be
 published on the CD and the other, containing only the first page, with
 abstract and ``resumo'' (for papers in Portuguese).
 
-\section{Sections and Paragraphs}
+\section{Dinâmica Epidêmica e Integração de Dados Reais}
 
 Section titles must be in boldface, 13pt, flush left. There should be an extra
 12 pt of space before each title. Section numbering is optional. The first
@@ -99,7 +90,7 @@ subsequent paragraphs should be indented by 1.27 cm.
 
 The subsection titles must be in boldface, 12pt, flush left.
 
-\section{Figures and Captions}\label{sec:figs}
+\section{Interface Gráfica e Resultados Experimentais}\label{sec:figs}
 
 
 Figure and table captions should be centered if less than one line
@@ -138,7 +129,7 @@ space before and after each caption.
 \includegraphics[width=.7\textwidth]{table.jpg}
 \end{table}
 
-\section{Images}
+\section{Avaliação de Desempenho e Benchmarks}
 
 All images and illustrations should be in black-and-white, or gray tones,
 excepting for the papers that will be electronically available (on CD-ROMs,
@@ -147,7 +138,25 @@ black-and-white images, and 150-300 dpi for grayscale images.  Do not include
 images with excessive resolution, as they may take hours to print, without any
 visible difference in the result. 
 
-\section{References}
+\section{Limitações e Trabalhos Futuros}
+
+All images and illustrations should be in black-and-white, or gray tones,
+excepting for the papers that will be electronically available (on CD-ROMs,
+internet, etc.). The image resolution on paper should be about 600 dpi for
+black-and-white images, and 150-300 dpi for grayscale images.  Do not include
+images with excessive resolution, as they may take hours to print, without any
+visible difference in the result. 
+
+\section{Responsabilidades dos Integrantes e Conclusão}
+
+All images and illustrations should be in black-and-white, or gray tones,
+excepting for the papers that will be electronically available (on CD-ROMs,
+internet, etc.). The image resolution on paper should be about 600 dpi for
+black-and-white images, and 150-300 dpi for grayscale images.  Do not include
+images with excessive resolution, as they may take hours to print, without any
+visible difference in the result. 
+
+\section{Referências Bibliográficas}
 
 Bibliographic references must be unambiguous and uniform.  We recommend giving
 the author names references in brackets, e.g. \cite{knuth:84},
@@ -159,5 +168,74 @@ indented, while the subsequent should be indented by 0.5 cm.
 
 \bibliographystyle{sbc}
 \bibliography{sbc-template}
+
+\newpage
+\appendix
+
+\section{Apêndice: Wireframes e Catálogo de Telas da Ferramenta}
+\label{sec:apendice_wireframes}
+
+Este apêndice reúne o catálogo de wireframes e especificações visuais elaborados durante o planejamento da interface com o usuário (Módulo~5). A inclusão destas telas em formato de apêndice permite documentar todo o processo de design e validação das interações do usuário, mantendo o corpo principal do artigo dentro do limite regulamentar de 12 a 15 páginas estipulado pela disciplina.
+
+\subsection{Fluxo de Configuração e Execução da Simulação}
+Apresenta as telas de parametrização da doença, calibração iterativa de $\beta$, sorteio ou escolha manual do paciente zero por país/vértice e controle temporal da execução (play, pause e velocidade).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/wf_tela02_config.png}
+\caption{Wireframe da Tela 2: Painel de parametrização epidemiológica ($R_0$, $\gamma$, letalidade e níveis de intervenção).}
+\label{fig:wf_tela2}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/wf_tela05_simulacao.png}
+\caption{Wireframe da Tela 5: Visualizador cartográfico global com reprodução temporal e estados SEIRD por país.}
+\label{fig:wf_tela5}
+\end{figure}
+
+\subsection{Painel de Análise Estrutural de Grafos (M1 e M2)}
+Reúne as telas de inspeção dos algoritmos desenvolvidos pelo grupo: componentes conexas, rotas epidemiológicas mais prováveis via Dijkstra ($-\ln p$), pontes críticas e pontos de articulação de Tarjan, métricas de centralidade e detecção de comunidades por propagação de rótulos (LPA).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/wf_tela10_dijkstra.png}
+\caption{Wireframe da Tela 10 (Caminho Mínimo): Consulta de rotas de transmissão e probabilidade conjunta via Dijkstra.}
+\label{fig:wf_tela10_dijkstra}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/wf_tela10_tarjan.png}
+\caption{Wireframe da Tela 10 (Vulnerabilidade): Detecção em passo único DFS de arestas de corte e vértices de articulação (Tarjan).}
+\label{fig:wf_tela10_tarjan}
+\end{figure}
+
+\subsection{Fluxo de Dados Reais e Comparação Empírica (M4)}
+Documenta a navegação pelos datasets históricos reais (COVID-19, SARS, Ebola e H1N1) e o painel de comparação das métricas da simulação contra curvas empíricas observadas.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/wf_tela09_pandemias.png}
+\caption{Wireframe da Tela 9: Reprodução histórica com séries temporais oficiais e mapa coroplético de casos.}
+\label{fig:wf_tela9}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/wf_tela11_comparacao.png}
+\caption{Wireframe da Tela 11: Módulo de validação estatística e confronto entre séries sintéticas e observadas.}
+\label{fig:wf_tela11}
+\end{figure}
+
+\subsection{Telas Complementares e Inspeção Detalhada}
+Inclui o visualizador de inspeção de vértice individual no mapa (país, grau $k_v$, coeficiente de agrupamento local $C_v$ e vizinhos ativos), além dos diálogos de persistência de configuração e exportação de dados em CSV.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/wf_tela14_inspecao.png}
+\caption{Wireframe da Tela 14: Inspeção pontual de vértice por clique no mapa interativo.}
+\label{fig:wf_tela14}
+\end{figure}
 
 \end{document}
