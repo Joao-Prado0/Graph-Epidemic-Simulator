@@ -44,17 +44,34 @@ Henrique Pereira Resende Rocha\inst{1}, Luiz Felipe Ribeiro Souza\inst{1}}
 
 \section{Introdução e Contextualização}
 
-All full papers and posters (short papers) submitted to some SBC conference,
-including any supporting documents, should be written in English or in
-Portuguese. The format paper should be A4 with single column, 3.5 cm for upper
-margin, 2.5 cm for bottom margin and 3.0 cm for lateral margins, without
-headers or footers. The main font must be Times, 12 point nominal size, with 6
-points of space before each paragraph. Page numbers must be suppressed.
+\subsection{Motivação}
 
-Full papers must respect the page limits defined by the conference.
-Conferences that publish just abstracts ask for \textbf{one}-page texts.
+Entender como uma doença se espalha depende tanto do comportamento do agente infeccioso quanto da estrutura de contatos entre as pessoas. Os modelos compartimentais clássicos, derivados do trabalho de Kermack e McKendrick~\cite{kermack1927}, descrevem a epidemia por equações diferenciais sobre populações de suscetíveis, infectados e recuperados e assumem mistura homogênea, isto é, que todo indivíduo tem a mesma chance de contato com qualquer outro. Essa hipótese deixa de fora justamente o que mais diferencia uma epidemia de outra: redes reais têm hubs, aglomerados e poucas conexões entre comunidades, e a topologia altera de forma marcante o limiar epidêmico e o ritmo de propagação~\cite{pastor2015}.
 
-\section{Modelagem Teórica do Grafo e Arquitetura UML} \label{sec:firstpage}
+Em escala global, a malha de transporte aéreo é o principal canal de disseminação entre países. Brockmann e Helbing~\cite{brockmann2013} mostram que a chegada de uma epidemia a um país é descrita melhor pela distância efetiva na rede de voos do que pela distância geográfica, o que justifica tratar o problema como um problema de grafos: caminhos mínimos, componentes conexos, pontes e comunidades têm interpretação epidemiológica direta. Medidas como isolamento e vacinação também têm efeitos que variam conforme quem é isolado ou vacinado e conforme o lugar que essa pessoa ocupa na rede.
+
+\subsection{Problema e objetivos}
+
+Este trabalho apresenta uma ferramenta computacional para simular e explorar a propagação de doenças em redes, como o Tema~7 (Simulador de Epidemias em Redes) do trabalho prático da disciplina de Teoria dos Grafos. O sistema representa a população mundial por um grafo único e permite ajustar parâmetros como contágio, recuperação, mortalidade e isolamento. Os objetivos são:
+
+\begin{itemize}
+  \item simular a propagação de uma epidemia sobre o grafo, com parâmetros definidos pelo usuário antes do início da execução;
+  \item reproduzir visualmente pandemias reais (COVID-19, Ebola, H1N1 e SARS) a partir de datasets públicos, sobre o mesmo grafo global;
+  \item aplicar e analisar, no contexto da epidemia, algoritmos de grafos implementados pelo grupo (busca em largura e em profundidade, componentes conexos, Dijkstra, pontes e articulações de Tarjan, agrupamento, centralidade e comunidades), com análise de complexidade;
+  \item oferecer uma aplicação desktop com visual inspirado no jogo \emph{Plague Inc.}, em que o mapa muda de cor conforme o contágio. A inspiração é apenas visual, não de comportamento.
+\end{itemize}
+
+A ferramenta é demonstrativa: o usuário configura o cenário antes de iniciar e depois apenas assiste, sem alterar o rumo da epidemia. Por isso é um simulador didático, sem pretensão de previsão epidemiológica nem de apoio a decisões de saúde pública.
+
+\subsection{Visão geral da solução}
+
+O grafo unificado é construído em três etapas. Cada país recebe um número de vértices (indivíduos) proporcional, de forma sublinear, à sua população, com orçamento total fixo de vértices. Dentro de cada país, os vértices são posicionados no polígono do país e ligados por proximidade geométrica, o que forma uma rede geométrica aleatória. Entre países, as arestas vêm das rotas aéreas do OpenFlights, com peso de contágio derivado do número de rotas. A dinâmica segue um modelo compartimental com os estados S, E, I, R e D, mais as marcações de isolado e vacinado, avançando em passos de um dia. O motor grava o estado de cada vértice a cada passo e a interface apenas reproduz essa linha do tempo, de modo que os fluxos de simulação e de pandemias reais compartilham o mesmo \emph{player}. A aplicação foi escrita em Python com PySide6, sem bibliotecas prontas de grafos. O NetworkX é usado somente no \emph{benchmark} de desempenho, conforme permitido pelo enunciado.
+
+\subsection{Organização do artigo}
+
+A Seção~\ref{sec:modelagem} apresenta a modelagem do grafo e a arquitetura, com os diagramas UML. A Seção~\ref{sec:algoritmos} descreve as estruturas de dados e os algoritmos, com sua complexidade. A Seção~\ref{sec:dinamica} trata da dinâmica epidêmica e da integração com dados reais. A Seção~\ref{sec:interface} mostra a interface e os resultados. A Seção~\ref{sec:desempenho} avalia o desempenho e a Seção~\ref{sec:limitacoes} discute as limitações. A Seção~\ref{sec:conclusao} indica as responsabilidades de cada integrante e conclui. Os \emph{wireframes} das telas estão no Apêndice~\ref{sec:apendice_wireframes}.
+
+\section{Modelagem Teórica do Grafo e Arquitetura UML} \label{sec:modelagem} \label{sec:firstpage}
 
 The first page must display the paper title, the name and address of the
 authors, the abstract in English and ``resumo'' in Portuguese (``resumos'' are
@@ -71,7 +88,7 @@ The abstract and ``resumo'' (if is the case) must be in 12 point Times font,
 indented 0.8cm on both sides. The word \textbf{Abstract} and \textbf{Resumo},
 should be written in boldface and must precede the text.
 
-\section{Estruturas de Dados e Algoritmos de Grafos}
+\section{Estruturas de Dados e Algoritmos de Grafos} \label{sec:algoritmos}
 
 In some conferences, the papers are published on CD-ROM while only the
 abstract is published in the printed Proceedings. In this case, authors are
@@ -79,7 +96,7 @@ invited to prepare two final versions of the paper. One, complete, to be
 published on the CD and the other, containing only the first page, with
 abstract and ``resumo'' (for papers in Portuguese).
 
-\section{Dinâmica Epidêmica e Integração de Dados Reais}
+\section{Dinâmica Epidêmica e Integração de Dados Reais} \label{sec:dinamica}
 
 Section titles must be in boldface, 13pt, flush left. There should be an extra
 12 pt of space before each title. Section numbering is optional. The first
@@ -90,7 +107,7 @@ subsequent paragraphs should be indented by 1.27 cm.
 
 The subsection titles must be in boldface, 12pt, flush left.
 
-\section{Interface Gráfica e Resultados Experimentais}\label{sec:figs}
+\section{Interface Gráfica e Resultados Experimentais} \label{sec:interface}\label{sec:figs}
 
 
 Figure and table captions should be centered if less than one line
@@ -129,7 +146,7 @@ space before and after each caption.
 \includegraphics[width=.7\textwidth]{table.jpg}
 \end{table}
 
-\section{Avaliação de Desempenho e Benchmarks}
+\section{Avaliação de Desempenho e Benchmarks} \label{sec:desempenho}
 
 All images and illustrations should be in black-and-white, or gray tones,
 excepting for the papers that will be electronically available (on CD-ROMs,
@@ -138,7 +155,7 @@ black-and-white images, and 150-300 dpi for grayscale images.  Do not include
 images with excessive resolution, as they may take hours to print, without any
 visible difference in the result. 
 
-\section{Limitações e Trabalhos Futuros}
+\section{Limitações e Trabalhos Futuros} \label{sec:limitacoes}
 
 All images and illustrations should be in black-and-white, or gray tones,
 excepting for the papers that will be electronically available (on CD-ROMs,
@@ -147,7 +164,7 @@ black-and-white images, and 150-300 dpi for grayscale images.  Do not include
 images with excessive resolution, as they may take hours to print, without any
 visible difference in the result. 
 
-\section{Responsabilidades dos Integrantes e Conclusão}
+\section{Responsabilidades dos Integrantes e Conclusão} \label{sec:conclusao}
 
 All images and illustrations should be in black-and-white, or gray tones,
 excepting for the papers that will be electronically available (on CD-ROMs,
@@ -167,7 +184,7 @@ before each reference. The first line of each reference should not be
 indented, while the subsequent should be indented by 0.5 cm.
 
 \bibliographystyle{sbc}
-\bibliography{sbc-template}
+\bibliography{sbc-template,referencias}
 
 \newpage
 \appendix
