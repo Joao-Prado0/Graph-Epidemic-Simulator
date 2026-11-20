@@ -1,0 +1,12 @@
+{
+  "seed": 42,
+  "scenario": "global",
+  "r0": 5.0,
+  "exit_rate_gamma": 0.1,
+  "mortality": 0.02,
+  "incubation_days": 4.0,
+  "intervention_level": "baixo",
+  "patient_zero": null,
+  "max_days": 365,
+  "day_zero_threshold_m": 1
+}

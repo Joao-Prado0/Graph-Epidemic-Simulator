@@ -112,7 +112,7 @@ class SimulationConfig:
 
     seed: int = 42
     scenario: str = SCENARIO_GLOBAL
-    r0: float = 2.5
+    r0: float = 5.0
     exit_rate_gamma: float = 0.1
     mortality: float = 0.02
     incubation_days: float = 4.0

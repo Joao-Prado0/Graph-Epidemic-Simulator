@@ -55,7 +55,7 @@ def test_config_panel_get_and_apply_config(qapp):
     """Verifica que ConfigPanel extrai e aplica SimulationConfig corretamente."""
     panel = ConfigPanel()
     cfg = panel.get_simulation_config()
-    assert cfg.r0 == 2.5
+    assert cfg.r0 == 5.0
     assert cfg.exit_rate_gamma == 0.10
     assert cfg.mortality == 0.02
     assert cfg.intervention_level == "baixo"

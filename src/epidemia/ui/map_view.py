@@ -111,6 +111,7 @@ class MapCanvas(QWidget):
         self._pan_y: float = 0.0
         self._center_lon: float = 0.0
         self._center_lat: float = 0.0
+        self._user_modified_view: bool = False
 
         # Controle de arraste e clique com o mouse
         self._is_dragging: bool = False
@@ -193,6 +194,7 @@ class MapCanvas(QWidget):
         """Ajusta o enquadramento do mapa para caber perfeitamente no widget."""
         self._pan_x = 0.0
         self._pan_y = 0.0
+        self._user_modified_view = False
         if not self._country_bboxes:
             self._zoom = 3.0
             self.update()
@@ -202,23 +204,38 @@ class MapCanvas(QWidget):
         for bbox in self._country_bboxes.values():
             total_rect = total_rect.united(bbox)
 
-        w = self.width() if self.width() > 50 else 800
-        h = self.height() if self.height() > 50 else 500
+        is_sized = self.isVisible() and self.width() > 150 and self.height() > 100
+        w = self.width() if is_sized else 960
+        h = self.height() if is_sized else 600
 
-        scale_x = (w * 0.85) / max(1.0, total_rect.width())
-        scale_y = (h * 0.85) / max(1.0, total_rect.height())
+        scale_x = (w * 0.92) / max(1.0, total_rect.width())
+        scale_y = (h * 0.92) / max(1.0, total_rect.height())
         self._zoom = max(0.5, min(scale_x, scale_y, 40.0))
         self.update()
 
     def zoom_in(self) -> None:
         """Aumenta o zoom em 25%."""
+        self._user_modified_view = True
         self._zoom = min(200.0, self._zoom * 1.25)
         self.update()
 
     def zoom_out(self) -> None:
         """Diminui o zoom em 20%."""
+        self._user_modified_view = True
         self._zoom = max(0.2, self._zoom / 1.25)
         self.update()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        if not self._user_modified_view and self._country_bboxes:
+            if self.width() > 150 and self.height() > 100:
+                self.fit_map()
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        if not self._user_modified_view and self._country_bboxes:
+            if self.width() > 150 and self.height() > 100:
+                self.fit_map()
 
     def _get_transform(self) -> QTransform:
         transform = QTransform()
@@ -401,6 +418,7 @@ class MapCanvas(QWidget):
 
     def wheelEvent(self, event: QWheelEvent) -> None:
         """Zoom com a roda do mouse centrado no ponteiro."""
+        self._user_modified_view = True
         delta = event.angleDelta().y()
         factor = 1.15 if delta > 0 else (1.0 / 1.15)
         new_zoom = max(0.2, min(300.0, self._zoom * factor))
@@ -415,6 +433,7 @@ class MapCanvas(QWidget):
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         if self._is_dragging:
+            self._user_modified_view = True
             delta = event.position() - self._last_mouse_pos
             self._last_mouse_pos = event.position()
             self._pan_x += delta.x()

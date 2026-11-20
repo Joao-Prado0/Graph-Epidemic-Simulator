@@ -154,12 +154,18 @@ class ConfigPanel(QWidget):
     config_changed = Signal(SimulationConfig)
     back_requested = Signal()
 
-    def __init__(self, parent: QWidget | None = None, world: World | None = None) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        world: World | None = None,
+        initial_seed: int = 42,
+    ) -> None:
         super().__init__(parent)
         self._world: World | None = world
         self._calibrated_beta_value: float | None = None
         self._seed_click_count: int = 0
         self._pz_pick_count: int = 0
+        self._initial_seed: int = world.seed if world is not None else initial_seed
         self._init_ui()
         if world is not None:
             self.set_world(world)
@@ -223,12 +229,12 @@ class ConfigPanel(QWidget):
         self._spin_r0 = QDoubleSpinBox()
         self._spin_r0.setRange(0.1, 20.0)
         self._spin_r0.setSingleStep(0.1)
-        self._spin_r0.setValue(2.5)
+        self._spin_r0.setValue(5.0)
         self._spin_r0.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._slider_r0 = QSlider(Qt.Orientation.Horizontal)
         self._slider_r0.setRange(1, 200)
-        self._slider_r0.setValue(25)
+        self._slider_r0.setValue(50)
         self._slider_r0.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._spin_r0.valueChanged.connect(self._on_spin_r0_changed)
@@ -478,7 +484,7 @@ class ConfigPanel(QWidget):
         seed_box = QHBoxLayout()
         self._spin_seed = QSpinBox()
         self._spin_seed.setRange(0, 999999)
-        self._spin_seed.setValue(42)
+        self._spin_seed.setValue(self._initial_seed)
         self._spin_seed.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._btn_random_seed = QPushButton("Gerar aleatória")
@@ -600,8 +606,6 @@ class ConfigPanel(QWidget):
         footer.addWidget(self._btn_load)
         footer.addStretch(1)
         footer.addWidget(self._btn_start)
-
-        return footer
 
         return footer
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -188,7 +188,7 @@ class PandemicCard(QFrame):
 class MainWindow(QMainWindow):
     """Janela principal do Simulador de Epidemias em Redes."""
 
-    def __init__(self, world: World | None = None) -> None:
+    def __init__(self, world: World | None = None, *, seed: int = 42) -> None:
         super().__init__()
         self.setWindowTitle("Simulador de Epidemias em Redes — Antigravity")
         self.resize(1380, 880)
@@ -199,6 +199,7 @@ class MainWindow(QMainWindow):
         self._raw_countries: list[Any] = []
         self._raw_edges: list[Any] = []
         self._default_total_vertices: int = 8000
+        self._initial_seed: int = world.seed if world is not None else seed
 
         if world is not None:
             self._world: World = world
@@ -211,7 +212,7 @@ class MainWindow(QMainWindow):
                 self._world = self._world_cache.get_or_build(
                     self._raw_countries,
                     self._raw_edges,
-                    seed=42,
+                    seed=self._initial_seed,
                     scenario="global",
                     total_vertices=self._default_total_vertices,
                 )
@@ -222,7 +223,7 @@ class MainWindow(QMainWindow):
                 self._world = self._world_cache.get_or_build(
                     self._raw_countries,
                     self._raw_edges,
-                    seed=42,
+                    seed=self._initial_seed,
                     scenario="global",
                     total_vertices=self._default_total_vertices,
                 )
@@ -234,7 +235,7 @@ class MainWindow(QMainWindow):
             self._world = self._world_cache.get_or_build(
                 self._raw_countries,
                 self._raw_edges,
-                seed=42,
+                seed=self._initial_seed,
                 scenario="global",
                 total_vertices=self._default_total_vertices,
             )
@@ -304,7 +305,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._sim_stack)
 
         # Página 0 da Simulação: Tela 2 (Configuração)
-        self._config_panel = ConfigPanel(world=self._world)
+        self._config_panel = ConfigPanel(world=self._world, initial_seed=self._initial_seed)
         self._sim_stack.addWidget(self._config_panel)
 
         # Página 1 da Simulação: Tela 5 (Simulação em Andamento)
@@ -374,7 +375,7 @@ class MainWindow(QMainWindow):
         )
         w_layout = QVBoxLayout(warn_box)
         w_layout.setContentsMargins(8, 6, 8, 6)
-        lbl_warn = QLabel("Para alterar parâmetros, reinicie a simulação (RN01).")
+        lbl_warn = QLabel("Para alterar parâmetros, reinicie a simulação.")
         lbl_warn.setWordWrap(True)
         lbl_warn.setStyleSheet("color: #ffb74d; font-size: 11px;")
         w_layout.addWidget(lbl_warn)
@@ -1083,6 +1084,7 @@ class MainWindow(QMainWindow):
             # Muda para a Tela 9 dentro da aba Pandemias reais
             self._real_stack.setCurrentIndex(1)
             self._tabs.setCurrentIndex(2)
+            QTimer.singleShot(0, self._real_map_view._on_fit_clicked)
 
         except FileNotFoundError:
             msg = (
@@ -1246,6 +1248,7 @@ class MainWindow(QMainWindow):
 
             self._config_panel.set_running_state(True)
             self._sim_stack.setCurrentIndex(1)  # Comuta para Tela 5 de execução
+            QTimer.singleShot(0, self._map_view._on_fit_clicked)
 
             self._sim_thread.set_session(self._session)
             self._sim_thread.start()

@@ -45,7 +45,7 @@ def test_main_window_flow_navigation(monkeypatch):
     win._config_panel._btn_start.click()
     # Deve comutar para a Tela 5 (execução)
     assert win._sim_stack.currentIndex() == 1
-    assert "2,5" in win._lbl_frozen_r0.text()
+    assert "5,0" in win._lbl_frozen_r0.text()
 
     # Alterna visualização central entre Mapa e Curvas da Tela 7
     assert win._center_stack.currentIndex() == 0

@@ -7,6 +7,7 @@ Pode ser executado diretamente com:
 
 from __future__ import annotations
 
+import random
 import sys
 
 from PySide6.QtWidgets import QApplication
@@ -23,7 +24,9 @@ def main() -> int:
     app.setApplicationName("Simulador de Epidemias em Redes")
     app.setOrganizationName("Graph-Epidemic-Simulator")
 
-    window = MainWindow()
+    # Sorteia uma nova semente a cada inicialização para variar a experiência
+    initial_seed = random.randint(1, 999999)
+    window = MainWindow(seed=initial_seed)
     window.show()
 
     return app.exec()
