@@ -136,21 +136,67 @@ space before and after each caption.
 
 \section{Avaliação de Desempenho e Benchmarks} \label{sec:desempenho}
 
-All images and illustrations should be in black-and-white, or gray tones,
-excepting for the papers that will be electronically available (on CD-ROMs,
-internet, etc.). The image resolution on paper should be about 600 dpi for
-black-and-white images, and 150-300 dpi for grayscale images.  Do not include
-images with excessive resolution, as they may take hours to print, without any
-visible difference in the result. 
+Para validar a eficiência assintótica das estruturas e algoritmos implementados no núcleo (\texttt{core/analysis/}) e justificar o dimensionamento do grafo global, foi desenvolvido um protocolo reprodutível de \emph{benchmark} (\texttt{benchmarks/bench\_grafo.py}). Em conformidade com as restrições do projeto, a biblioteca \emph{NetworkX} é importada exclusivamente nesse módulo externo para comparação de tempo de execução e verificação automatizada de equivalência dos resultados.
+
+Os experimentos foram conduzidos sobre grafos esparsos gerados de forma determinística (semente fixa) nos quatro tamanhos de referência definidos na modelagem: $V \in \{1.000, 5.000, 10.000, 50.000\}$ vértices, mantendo grau médio constante $\bar{d} = 8$ (correspondente a $E \in \{4.000, 20.000, 40.000, 200.000\}$ arestas não direcionadas), com topologia que combina conexões locais (formação de triângulos) e atalhos de longo alcance. Em todas as baterias, os valores produzidos pela implementação própria coincidiram integralmente com as saídas de referência do \emph{NetworkX} (diferença numérica inferior a $10^{-7}$ nas métricas contínuas e igualdade exata nos conjuntos de pontes e pontos de articulação).
+
+\begin{table}[!ht]
+\centering
+\caption{Comparação de tempo de execução (em ms) entre a implementação própria e o NetworkX para grau médio $\bar{d} = 8$, e custo do passo diário de simulação.}
+\label{tab:benchmark_networkx}
+\footnotesize
+\renewcommand{\arraystretch}{0.92}
+\begin{tabular}{rrlrrr}
+\hline
+\textbf{$V$} & \textbf{$E$} & \textbf{Algoritmo / Operação} & \textbf{Próprio (ms)} & \textbf{NetworkX (ms)} & \textbf{Razão} \\
+\hline
+1.000  & 4.000   & Grau médio $O(V+E)$               & 2,10     & 0,23     & 9,31$\times$ \\
+1.000  & 4.000   & Agrupamento médio $O(\sum k_v^2)$ & 5,37     & 16,88    & 0,32$\times$ \\
+1.000  & 4.000   & Tarjan (pontes e artic.) $O(V+E)$ & 4,73     & 22,88    & 0,21$\times$ \\
+1.000  & 4.000   & Propagação de rótulos (LPA)       & 90,55    & 45,12    & 2,01$\times$ \\
+1.000  & 4.000   & Intermediação aprox.\ ($k=25$)    & 39,13    & 64,43    & 0,61$\times$ \\
+1.000  & 4.000   & Intermediação exata $O(V(V+E))$   & 1.448,64 & 2.572,53 & 0,56$\times$ \\
+1.000  & 4.000   & Passo diário SEIRD $O(V+E)$       & 0,23     & ---      & ---          \\
+\hline
+5.000  & 20.000  & Grau médio $O(V+E)$               & 13,14    & 1,21     & 10,83$\times$ \\
+5.000  & 20.000  & Agrupamento médio $O(\sum k_v^2)$ & 33,56    & 85,49    & 0,39$\times$ \\
+5.000  & 20.000  & Tarjan (pontes e artic.) $O(V+E)$ & 26,96    & 112,42   & 0,24$\times$ \\
+5.000  & 20.000  & Propagação de rótulos (LPA)       & 524,64   & 236,21   & 2,22$\times$ \\
+5.000  & 20.000  & Intermediação aprox.\ ($k=25$)    & 292,53   & 428,97   & 0,68$\times$ \\
+5.000  & 20.000  & Passo diário SEIRD $O(V+E)$       & 1,10     & ---      & ---          \\
+\hline
+10.000 & 40.000  & Grau médio $O(V+E)$               & 29,42    & 2,42     & 12,16$\times$ \\
+10.000 & 40.000  & Agrupamento médio $O(\sum k_v^2)$ & 63,87    & 166,26   & 0,38$\times$ \\
+10.000 & 40.000  & Tarjan (pontes e artic.) $O(V+E)$ & 55,32    & 254,52   & 0,22$\times$ \\
+10.000 & 40.000  & Propagação de rótulos (LPA)       & 1.190,54 & 647,00   & 1,84$\times$ \\
+10.000 & 40.000  & Intermediação aprox.\ ($k=25$)    & 667,00   & 992,95   & 0,67$\times$ \\
+10.000 & 40.000  & Passo diário SEIRD $O(V+E)$       & 2,25     & ---      & ---          \\
+\hline
+50.000 & 200.000 & Grau médio $O(V+E)$               & 235,38   & 12,01    & 19,59$\times$ \\
+50.000 & 200.000 & Agrupamento médio $O(\sum k_v^2)$ & 404,47   & 952,45   & 0,42$\times$ \\
+50.000 & 200.000 & Tarjan (pontes e artic.) $O(V+E)$ & 372,11   & 1.542,74 & 0,24$\times$ \\
+50.000 & 200.000 & Propagação de rótulos (LPA)       & 6.639,63 & 3.487,40 & 1,90$\times$ \\
+50.000 & 200.000 & Intermediação aprox.\ ($k=25$)    & 5.220,21 & 8.245,74 & 0,63$\times$ \\
+50.000 & 200.000 & Passo diário SEIRD $O(V+E)$       & 12,33    & ---      & ---          \\
+\hline
+\end{tabular}
+\end{table}
+
+A Tabela~\ref{tab:benchmark_networkx} sintetiza os resultados obtidos. Observa-se que, nos algoritmos mais custosos de travessia estrutural e interseção de vizinhança --- coeficiente de agrupamento médio $O(\sum_{v} k_v^2)$, detecção conjunta de pontes e pontos de articulação de Tarjan~\cite{tarjan1972} em $O(V+E)$ e centralidade de intermediação de Brandes ---, a implementação própria superou o \emph{NetworkX}, executando entre $1{,}47\times$ e $4{,}84\times$ mais rápido (razões de $0{,}21\times$ a $0{,}68\times$). Esse ganho decorre diretamente da representação enxuta adotada no domínio: enquanto o \emph{NetworkX} armazena a topologia em dicionários aninhados de três níveis (\texttt{dict-of-dicts-of-dicts}) para acomodar rótulos genéricos e dicionários de atributos por aresta, o núcleo implementado opera sobre listas e conjuntos de inteiros contíguos ($0 \dots V-1$), reduzindo o custo de \emph{hashing} e a indireção de memória. Adicionalmente, nossa formulação do algoritmo de Tarjan unifica a extração de pontes e vértices de corte em uma única busca em profundidade (DFS) iterativa com pilha explícita, evitando duas travessias separadas e eliminando o risco de estouro do limite de recursão do Python em grafos com $V \ge 5.000$. Na detecção de comunidades por propagação de rótulos~\cite{raghavan2007}, o tempo próprio é cerca de $2\times$ superior ao do \emph{NetworkX} devido à ordenação explícita dos rótulos candidatos a cada desempate estocástico, decisão necessária para garantir reprodutibilidade estrita por semente entre execuções.
+
+Os dados também comprovam a necessidade de substituir a intermediação exata $O(V(V+E))$ pela versão aproximada por amostragem de $k$ fontes $O(k(V+E))$ na interface da aplicação: já em $V = 1.000$, o cálculo exato demanda $1.448{,}64$~ms, ao passo que a amostragem com $k = 25$ requer apenas $39{,}13$~ms ($37\times$ mais rápida) e escala linearmente até $50.000$ vértices. Por fim, a medição da travessia diária de transmissão SEIRD confirma crescimento estritamente linear $O(V+E)$, consumindo cerca de $1{,}8$~ms por dia simulado na escala padrão de $N_{\mathrm{total}} = 8.000$ vértices ($\approx 32.000$ arestas). Combinado à execução assíncrona do motor em \texttt{QThread} e à renderização em lote via \texttt{QPainter} com histerese de ocultação de vértices ($40$~px/$36$~px), o sistema manteve média de $40$~FPS na validação de máquina, superando com folga o requisito mínimo de $20$~FPS.
 
 \section{Limitações e Trabalhos Futuros} \label{sec:limitacoes}
 
-All images and illustrations should be in black-and-white, or gray tones,
-excepting for the papers that will be electronically available (on CD-ROMs,
-internet, etc.). The image resolution on paper should be about 600 dpi for
-black-and-white images, and 150-300 dpi for grayscale images.  Do not include
-images with excessive resolution, as they may take hours to print, without any
-visible difference in the result. 
+Embora o grafo unificado reproduza com coerência o acoplamento entre difusão local e transporte aéreo internacional~\cite{balcan2009,brockmann2013}, o modelo apresenta limitações metodológicas e de dados que devem ser consideradas na interpretação dos resultados:
+
+\begin{itemize}
+  \item \textbf{Retrato estático da malha aérea e demografia:} as rotas do OpenFlights refletem o estado da aviação comercial até junho de 2014, enquanto a população do OWID~\cite{owid_covid_2023} corresponde a um corte único ($\approx 2022$) aplicado retrospectivamente aos surtos de 2003, 2009, 2014 e 2020. Além disso, as 13 entidades soberanas do modelo que não possuem voos internacionais registrados no OpenFlights permanecem isoladas na camada aérea, sem inserção de arestas artificiais.
+  \item \textbf{Escala reduzida e topologia intranacional geométrica:} a compressão da população mundial em $N_{\mathrm{total}} = 8.000$ vértices exige que a comparação com séries reais seja feita por frações populacionais. Internamente, o grafo geométrico aleatório aproxima a contiguidade espacial, mas não captura fluxos pendulares interurbanos nem a distribuição de grau de cauda pesada associada a eventos de superdisseminação~\cite{lipsitch2003,pastor2015}; em países pequenos alocados no piso ($n_{\min} = 12$), o grau médio efetivo $\min(\bar{d}, n_i - 1)$ produz subgrafos quase completos.
+  \item \textbf{Simplificações clínicas e de vigilância nos dados históricos:} o isolamento desativa todas as arestas do vértice infectado, abstraindo a transmissão intradomiciliar, e os parâmetros de intervenção e vacinação constituem premissas de cenário inspiradas na literatura~\cite{donnelly2003,ferguson2005}. No fluxo real~\cite{jhu_kaggle_covid,kaggle_ebola,kaggle_h1n1,kaggle_sars}, as séries trazem apenas casos confirmados acumulados --- sem modelagem de subnotificação e com recuperados reportados apenas no SARS (sujeitos a atraso de notificação clínica) ---, razão pela qual o mapa real adota escala sequencial de incidência por 100 mil habitantes em vez de status ativo dominante.
+\end{itemize}
+
+Como trabalhos futuros, destacam-se: (i) a inclusão de geradores topológicos livres de escala (Barabási--Albert) e de mundo pequeno (Watts--Strogatz) para modelar \emph{hubs} urbanos intranacionais~\cite{pastor2015}; (ii) a integração de redes de mobilidade pendular terrestre por modelos gravitacionais~\cite{balcan2009} para conectar fronteiras secas e países sem cobertura aérea; (iii) a adoção de redes temporais e adaptativas com redução dinâmica de tráfego aéreo durante o surto~\cite{colizza2006}; e (iv) a calibração automática multiparamétrica ($\beta, \gamma, \sigma$) por busca em grade ou inferência bayesiana sobre o erro quadrático médio das curvas históricas. 
 
 \section{Responsabilidades dos Integrantes e Conclusão} \label{sec:conclusao}
 
