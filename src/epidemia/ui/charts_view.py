@@ -112,23 +112,28 @@ class ChartsView(QWidget):
 
     def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(6, 4, 6, 4)
         layout.setSpacing(8)
 
-        # Barra de ferramentas superior
-        top_bar = QHBoxLayout()
-        top_bar.setSpacing(10)
+        compact_btn_qss = "QPushButton { padding: 3px 10px; font-size: 12px; min-height: 0px; }"
 
-        self._btn_back_map = QPushButton("Voltar ao mapa")
+        # Barra de ferramentas superior (compacta e alinhada)
+        top_bar = QHBoxLayout()
+        top_bar.setSpacing(8)
+
+        self._btn_back_map = QPushButton("← Voltar ao mapa")
         self._btn_back_map.setObjectName("btnSecondary")
+        self._btn_back_map.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_back_map.setFixedHeight(28)
+        self._btn_back_map.setStyleSheet(compact_btn_qss)
         self._btn_back_map.clicked.connect(self.back_to_map_requested.emit)
         top_bar.addWidget(self._btn_back_map)
 
         header_text = QVBoxLayout()
-        header_text.setSpacing(2)
+        header_text.setSpacing(1)
         self._lbl_title = QLabel("Curvas em tempo real")
         self._lbl_title.setStyleSheet(
-            f"font-size: 15px; font-weight: bold; color: {TEXT_PRIMARY_HEX};"
+            f"font-size: 14px; font-weight: bold; color: {TEXT_PRIMARY_HEX};"
         )
         self._lbl_subtitle = QLabel("Modelo SEIRD · Evolução diária da população")
         self._lbl_subtitle.setStyleSheet(f"font-size: 11px; color: {TEXT_MUTED_HEX};")
@@ -138,8 +143,21 @@ class ChartsView(QWidget):
 
         top_bar.addStretch(1)
 
-        self._btn_export = QPushButton("Exportar imagem (PNG)")
+        self._btn_reset_zoom = QPushButton("Ajustar gráfico")
+        self._btn_reset_zoom.setObjectName("btnSecondary")
+        self._btn_reset_zoom.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_reset_zoom.setFixedHeight(28)
+        self._btn_reset_zoom.setStyleSheet(compact_btn_qss)
+        self._btn_reset_zoom.setToolTip("Reajusta o enquadramento e o zoom do gráfico à tela")
+        self._btn_reset_zoom.clicked.connect(self.reset_zoom)
+        top_bar.addWidget(self._btn_reset_zoom)
+
+        self._btn_export = QPushButton("Exportar PNG")
         self._btn_export.setObjectName("btnSecondary")
+        self._btn_export.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_export.setFixedHeight(28)
+        self._btn_export.setStyleSheet(compact_btn_qss)
+        self._btn_export.setToolTip("Exportar gráfico atual como imagem PNG")
         self._btn_export.clicked.connect(self._on_export_clicked)
         top_bar.addWidget(self._btn_export)
 
@@ -325,6 +343,11 @@ class ChartsView(QWidget):
         self._chip_r.set_counts(0, 0)
         self._chip_d.set_counts(0, 0)
         self._lbl_subtitle.setText("Modelo SEIRD · Evolução diária da população")
+
+    def reset_zoom(self) -> None:
+        """Reajusta automaticamente os eixos X e Y do gráfico para caber na tela."""
+        self._plot_widget.enableAutoRange()
+        self._plot_widget.autoRange()
 
     def export_image(self, file_path: str | Path) -> None:
         """Exporta o gráfico como arquivo de imagem PNG."""

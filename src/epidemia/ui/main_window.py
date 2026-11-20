@@ -409,6 +409,15 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
 
+        # Stack central contendo a página do Mapa (toolbar + mapa) e a página de Gráficos
+        self._center_stack = QStackedWidget()
+
+        # Vista 0: Página do Mapa (a barra do mapa fica oculta automaticamente ao abrir os gráficos)
+        map_page = QWidget()
+        map_page_layout = QVBoxLayout(map_page)
+        map_page_layout.setContentsMargins(0, 0, 0, 0)
+        map_page_layout.setSpacing(6)
+
         # Barra de ferramentas superior do mapa (Zoom, Fit, Alternador Curvas e Legenda)
         toolbar = QHBoxLayout()
         toolbar.setSpacing(8)
@@ -444,7 +453,7 @@ class MainWindow(QMainWindow):
         toolbar.addSpacing(10)
 
         # Alternador de exibição Mapa vs Curvas em tempo real
-        self._btn_toggle_view = QPushButton("Ver curvas (Tela 7)")
+        self._btn_toggle_view = QPushButton("Ver curvas")
         self._btn_toggle_view.setObjectName("btnSecondary")
         self._btn_toggle_view.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_toggle_view.setFixedHeight(28)
@@ -474,12 +483,8 @@ class MainWindow(QMainWindow):
             leg_box.addWidget(lbl)
         toolbar.addLayout(leg_box)
 
-        layout.addLayout(toolbar)
+        map_page_layout.addLayout(toolbar)
 
-        # Stack central contendo o Mapa e o Gráfico da Tela 7
-        self._center_stack = QStackedWidget()
-
-        # Vista 0: Mapa QPainter (barra interna oculta pois Tela 5 tem toolbar própria)
         self._map_view = MapView()
         self._map_view.set_toolbar_visible(False)
         self._map_view.set_world(self._world)
@@ -487,7 +492,8 @@ class MainWindow(QMainWindow):
         btn_zin.clicked.connect(self._map_view._on_zoom_in_clicked)
         btn_zout.clicked.connect(self._map_view._on_zoom_out_clicked)
         btn_fit.clicked.connect(self._map_view._on_fit_clicked)
-        self._center_stack.addWidget(self._map_view)
+        map_page_layout.addWidget(self._map_view, stretch=1)
+        self._center_stack.addWidget(map_page)
 
         # Vista 1: Gráficos SEIRD (Tela 7)
         self._charts_view = ChartsView()
@@ -550,7 +556,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(grp_epi)
 
         # Card Comparação Científica (RF14)
-        grp_comp = QGroupBox("Comparação científica (RF14)")
+        grp_comp = QGroupBox("Comparação científica")
         comp_layout = QVBoxLayout(grp_comp)
         comp_layout.setSpacing(6)
 
@@ -742,7 +748,7 @@ class MainWindow(QMainWindow):
         lbl_title.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {TEXT_PRIMARY_HEX};")
         lbl_desc = QLabel(
             "Selecione uma pandemia histórica para reproduzir a disseminação real no mapa "
-            "mundial (A12) e comparar com as previsões teóricas do simulador (RF14)."
+            "mundial e comparar com as previsões teóricas do simulador."
         )
         lbl_desc.setStyleSheet(f"font-size: 12px; color: {TEXT_MUTED_HEX};")
         header.addWidget(lbl_title)
@@ -824,6 +830,7 @@ class MainWindow(QMainWindow):
 
         btn_back_surto = QPushButton("← Todos os surtos")
         btn_back_surto.setObjectName("btnSecondary")
+        btn_back_surto.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_back_surto.clicked.connect(self._on_unload_pandemic_clicked)
         l_layout.addWidget(btn_back_surto)
 
@@ -841,7 +848,12 @@ class MainWindow(QMainWindow):
 
         btn_compare_model = QPushButton("Comparar com modelo")
         btn_compare_model.setObjectName("btnPrimary")
-        btn_compare_model.clicked.connect(self._update_comparison_metrics)
+        btn_compare_model.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_compare_model.setToolTip(
+            "Exibe o relatório completo de comparação científica entre "
+            "esta pandemia histórica e a simulação atual"
+        )
+        btn_compare_model.clicked.connect(self._on_compare_with_model_clicked)
         l_layout.addWidget(btn_compare_model)
 
         l_layout.addStretch(1)
@@ -853,21 +865,61 @@ class MainWindow(QMainWindow):
         c_layout.setContentsMargins(0, 0, 0, 0)
         c_layout.setSpacing(6)
 
-        # Barra de ferramentas do mapa real com a legenda de 6 classes (A12)
+        # Stack central contendo a página do Mapa Real (toolbar + mapa) e a página de Gráficos
+        self._real_center_stack = QStackedWidget()
+
+        real_map_page = QWidget()
+        real_map_layout = QVBoxLayout(real_map_page)
+        real_map_layout.setContentsMargins(0, 0, 0, 0)
+        real_map_layout.setSpacing(6)
+
+        # Barra única do mapa real: controles de zoom/vista à esquerda + legenda à direita
         r_toolbar = QHBoxLayout()
-        r_toolbar.setSpacing(8)
+        r_toolbar.setSpacing(6)
 
-        lbl_map_hdr = QLabel("Incidência por 100 mil hab. (A12)")
-        lbl_map_hdr.setStyleSheet(f"font-weight: bold; color: {TEXT_PRIMARY_HEX};")
-        r_toolbar.addWidget(lbl_map_hdr)
+        btn_r_zin = QPushButton("＋")
+        btn_r_zin.setObjectName("btnMapZoom")
+        btn_r_zin.setFixedSize(32, 28)
+        btn_r_zin.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_r_zin.setToolTip("Aproximar mapa (Zoom In)")
+        btn_r_zin.setStyleSheet(
+            "QPushButton#btnMapZoom { padding: 0px; font-size: 15px; font-weight: bold; }"
+        )
 
-        self._btn_real_toggle_view = QPushButton("Ver curvas (RF12)")
+        btn_r_zout = QPushButton("−")
+        btn_r_zout.setObjectName("btnMapZoom")
+        btn_r_zout.setFixedSize(32, 28)
+        btn_r_zout.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_r_zout.setToolTip("Afastar mapa (Zoom Out)")
+        btn_r_zout.setStyleSheet(
+            "QPushButton#btnMapZoom { padding: 0px; font-size: 15px; font-weight: bold; }"
+        )
+
+        btn_r_fit = QPushButton("Ajustar mapa")
+        btn_r_fit.setObjectName("btnSecondary")
+        btn_r_fit.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_r_fit.setFixedHeight(28)
+        btn_r_fit.setToolTip("Enquadrar todo o mapa mundial")
+
+        self._btn_real_toggle_view = QPushButton("Ver curvas")
         self._btn_real_toggle_view.setObjectName("btnSecondary")
+        self._btn_real_toggle_view.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_real_toggle_view.setFixedHeight(28)
         self._btn_real_toggle_view.clicked.connect(self._on_toggle_real_center_view)
+
+        r_toolbar.addWidget(btn_r_zin)
+        r_toolbar.addWidget(btn_r_zout)
+        r_toolbar.addWidget(btn_r_fit)
+        r_toolbar.addSpacing(6)
         r_toolbar.addWidget(self._btn_real_toggle_view)
 
         r_toolbar.addStretch(1)
+
+        # Legenda de incidência agrupada ao lado das bolinhas com fonte legível
+        lbl_map_hdr = QLabel("Incidência / 100 mil hab.:")
+        lbl_map_hdr.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {TEXT_PRIMARY_HEX};")
+        r_toolbar.addWidget(lbl_map_hdr)
+        r_toolbar.addSpacing(4)
 
         scale_items = [
             ("< 10", "#2d3748"),
@@ -879,21 +931,25 @@ class MainWindow(QMainWindow):
         ]
         for s_lbl, s_col in scale_items:
             dot = QLabel()
-            dot.setFixedSize(8, 8)
-            dot.setStyleSheet(f"background-color: {s_col}; border-radius: 4px;")
+            dot.setFixedSize(10, 10)
+            dot.setStyleSheet(f"background-color: {s_col}; border-radius: 5px;")
             lbl_s = QLabel(s_lbl)
-            lbl_s.setStyleSheet(f"font-size: 10px; color: {TEXT_MUTED_HEX};")
+            lbl_s.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY_HEX};")
             r_toolbar.addWidget(dot)
             r_toolbar.addWidget(lbl_s)
+            r_toolbar.addSpacing(4)
 
-        c_layout.addLayout(r_toolbar)
-
-        self._real_center_stack = QStackedWidget()
+        real_map_layout.addLayout(r_toolbar)
 
         self._real_map_view = MapView()
+        self._real_map_view.set_toolbar_visible(False)
         self._real_map_view.set_world(self._world)
         self._real_map_view.vertex_clicked.connect(self._on_map_vertex_clicked)
-        self._real_center_stack.addWidget(self._real_map_view)
+        btn_r_zin.clicked.connect(self._real_map_view._on_zoom_in_clicked)
+        btn_r_zout.clicked.connect(self._real_map_view._on_zoom_out_clicked)
+        btn_r_fit.clicked.connect(self._real_map_view._on_fit_clicked)
+        real_map_layout.addWidget(self._real_map_view, stretch=1)
+        self._real_center_stack.addWidget(real_map_page)
 
         self._real_charts_view = ChartsView()
         self._real_charts_view.back_to_map_requested.connect(self._on_back_to_real_map_clicked)
@@ -925,7 +981,7 @@ class MainWindow(QMainWindow):
         r_layout.addWidget(grp_tot)
 
         # Card de Comparação RF14 na Tela 9
-        grp_comp9 = QGroupBox("Comparação RF14")
+        grp_comp9 = QGroupBox("Comparação")
         c9_layout = QVBoxLayout(grp_comp9)
         self._lbl_real_comp_summary = QLabel("Aguardando comparação...")
         self._lbl_real_comp_summary.setWordWrap(True)
@@ -968,11 +1024,11 @@ class MainWindow(QMainWindow):
             self._btn_toggle_view.setText("Ver mapa")
         else:
             self._center_stack.setCurrentIndex(0)
-            self._btn_toggle_view.setText("Ver curvas (Tela 7)")
+            self._btn_toggle_view.setText("Ver curvas")
 
     def _on_back_to_map_clicked(self) -> None:
         self._center_stack.setCurrentIndex(0)
-        self._btn_toggle_view.setText("Ver curvas (Tela 7)")
+        self._btn_toggle_view.setText("Ver curvas")
 
     def _on_toggle_real_center_view(self) -> None:
         if self._real_center_stack.currentIndex() == 0:
@@ -980,11 +1036,11 @@ class MainWindow(QMainWindow):
             self._btn_real_toggle_view.setText("Ver mapa")
         else:
             self._real_center_stack.setCurrentIndex(0)
-            self._btn_real_toggle_view.setText("Ver curvas (RF12)")
+            self._btn_real_toggle_view.setText("Ver curvas")
 
     def _on_back_to_real_map_clicked(self) -> None:
         self._real_center_stack.setCurrentIndex(0)
-        self._btn_real_toggle_view.setText("Ver curvas (RF12)")
+        self._btn_real_toggle_view.setText("Ver curvas")
 
     def _on_map_vertex_clicked(self, vertex_id: int) -> None:
         """Atualiza o painel com as métricas locais do vértice clicado no mapa (RF26)."""
@@ -1369,7 +1425,7 @@ class MainWindow(QMainWindow):
         """Atualiza a comparação entre a simulação atual e a pandemia real carregada (RF14)."""
         if not self._real_session.is_loaded:
             msg = "Indisponível (nenhuma pandemia real carregada)"
-            self._lbl_res_comp_status.setText(f"Comparação (RF14): {msg}")
+            self._lbl_res_comp_status.setText(f"Comparação: {msg}")
             self._lbl_res_comp_status.setStyleSheet("color: #78909c; font-style: italic;")
             self._lbl_res_comp_cases_mse.setText("• MSE Casos: --")
             self._lbl_res_comp_deaths_mse.setText("• MSE Mortes: --")
@@ -1380,7 +1436,7 @@ class MainWindow(QMainWindow):
 
         if not self._session.is_started or self._session.timeline().days_available <= 0:
             msg = "Indisponível (simulação não concluída ou sem dados)"
-            self._lbl_res_comp_status.setText(f"Comparação (RF14): {msg}")
+            self._lbl_res_comp_status.setText(f"Comparação: {msg}")
             self._lbl_res_comp_status.setStyleSheet("color: #78909c; font-style: italic;")
             self._lbl_res_comp_cases_mse.setText("• MSE Casos: --")
             self._lbl_res_comp_deaths_mse.setText("• MSE Mortes: --")
@@ -1394,7 +1450,7 @@ class MainWindow(QMainWindow):
             comp = compare_simulation_to_real(
                 self._session.timeline(), self._real_session.timeline(), country=None
             )
-            self._lbl_res_comp_status.setText(f"Comparação RF14 ({p_name}):")
+            self._lbl_res_comp_status.setText(f"Comparação ({p_name}):")
             self._lbl_res_comp_status.setStyleSheet(f"color: {ACCENT_TEAL_HEX}; font-weight: bold;")
 
             self._lbl_res_comp_cases_mse.setText(
@@ -1412,18 +1468,59 @@ class MainWindow(QMainWindow):
 
             self._lbl_real_comp_summary.setText(
                 f"Comparação ativa com {p_name}:\n"
-                f"MSE Casos: {format_number_br(comp.cases_mse, 4)}\n"
-                f"Dif. Pico: {comp.peak_day_difference:+d} dias"
+                f"• MSE Casos: {format_number_br(comp.cases_mse, 4)}\n"
+                f"• MSE Mortes: {format_number_br(comp.deaths_mse, 6)}\n"
+                f"• Dif. Pico: {comp.peak_day_difference:+d} dias\n"
+                f"• Dif. Tamanho Final: {format_number_br(comp.final_size_difference, 4)}"
             )
         except Exception as exc:
             msg = f"Indisponível ({exc})"
-            self._lbl_res_comp_status.setText(f"Comparação RF14: {msg}")
+            self._lbl_res_comp_status.setText(f"Comparação: {msg}")
             self._lbl_res_comp_status.setStyleSheet("color: #ef5350; font-style: italic;")
             self._lbl_res_comp_cases_mse.setText("• MSE Casos: --")
             self._lbl_res_comp_deaths_mse.setText("• MSE Mortes: --")
             self._lbl_res_comp_peak_diff.setText("• Dif. Pico Novos/Dia: --")
             self._lbl_res_comp_final_diff.setText("• Dif. Tamanho Final: --")
             self._lbl_real_comp_summary.setText(msg)
+
+    def _on_compare_with_model_clicked(self) -> None:
+        """Abre relatório detalhado de comparação (RF14) ou guia o usuário para simular."""
+        if not self._real_session.is_loaded:
+            QMessageBox.information(
+                self,
+                "Comparar com modelo",
+                "Selecione primeiro uma pandemia histórica para realizar a comparação.",
+            )
+            return
+
+        if not self._session.is_started or self._session.timeline().days_available <= 0:
+            reply = QMessageBox.question(
+                self,
+                "Nenhuma simulação executada",
+                "Ainda não há nenhuma simulação do modelo SEIRD concluída para comparar "
+                "com esta pandemia histórica.\n\n"
+                "Deseja ir para a aba 'Simulação' para configurar e executar um cenário?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                self._tabs.setCurrentIndex(1)
+            return
+
+        self._update_comparison_metrics()
+        try:
+            comp = compare_simulation_to_real(
+                self._session.timeline(),
+                self._real_session.timeline(),
+                country=None,
+            )
+            p_name = (self._real_session.current_pandemic or "real").upper()
+            QMessageBox.information(
+                self,
+                f"Comparação Científica — Modelo × {p_name}",
+                comp.detailed_report(),
+            )
+        except Exception as exc:
+            self.show_error_dialog("Erro na Comparação", str(exc))
 
     def _on_comp_pandemic_selected(self, index: int) -> None:
         p_id = self._combo_comp_pandemic.currentData()

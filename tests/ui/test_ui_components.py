@@ -348,7 +348,7 @@ def test_main_window_comparison_rf14(qapp, tmp_path):
     win._session.run_day()
 
     win._update_comparison_metrics()
-    assert "Comparação RF14 (SARS)" in win._lbl_res_comp_status.text()
+    assert "Comparação (SARS)" in win._lbl_res_comp_status.text()
     assert "• MSE Casos:" in win._lbl_res_comp_cases_mse.text()
     assert "• MSE Mortes:" in win._lbl_res_comp_deaths_mse.text()
     assert "• Dif. Pico Novos/Dia:" in win._lbl_res_comp_peak_diff.text()
