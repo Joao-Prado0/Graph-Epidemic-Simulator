@@ -146,27 +146,42 @@ O isolamento desativa temporariamente a máscara de arestas do vértice sem alte
 ## 6. Diagramas UML do Sistema
 
 ### 6.1 Diagrama de Componentes e Camadas
-A arquitetura é organizada em quatro camadas com dependência em sentido único (`ui` $\to$ `app` $\to$ `world`/`datasets` $\to$ `core`), isolando o núcleo de grafos e de simulação da interface gráfica:
-
 ![Diagrama de Componentes UML](../../diagramas/diagrama_de_componente/diagrama_de_componentes.png)
 
-### 6.2 Diagrama de Classes UML
-Representa as estruturas centrais do domínio (`Graph`, `World`, `Timeline`, `StateBuffer`, `SimulationConfig`, `EpidemicEngine`), as sessões de aplicação (`SimulationSession` e `RealSession`) e os componentes da interface gráfica:
+**Resumo do Diagrama de Componentes:**
+- **Pipeline Offline (`data/` — M4):** Consome as cinco fontes externas brutas (OpenFlights, Natural Earth 50m, Kaggle, OWID e JHU CSSE) e aplica as 135 regras de `country_aliases.csv` no script `prepare_data.py` (`pandas` + `shapely`), gerando os 7 arquivos limpos de `data/processed/`.
+- **Camada de Dados e Rede Global (`datasets/` — M4 e `world/` — M1):** O pacote `datasets/` carrega os países, arestas, geometrias e séries históricas em tempo de execução usando apenas a biblioteca padrão, alimentando o construtor de `world/` (alocação iterativa, geometria e grade espacial) que instancia o contêiner `Mundo`.
+- **Núcleo Puro (`core/` — M1, M2 e M3):** Concentra o domínio sem dependência de interface gráfica: `graph/` (estrutura `Graph`, BFS, DFS e Dijkstra), `analysis/` (métricas, pontes de Tarjan e comunidades), `epidemic/` (motor SEIRD e calibração de $\beta$), `timeline/` (protocolo da linha do tempo e `StateBuffer`) e o módulo de erros e sementes determinísticas.
+- **Casos de Uso (`app/`) e Interface (`ui/` — M5):** A camada `app/` coordena a `Sessão de Simulação`, a `Sessão Real`, a `Comparação Simulado x Real`, o `Controlador de Reprodução` e a exportação/configuração, sendo consumida pela `Janela Principal` em `PySide6` (Gráficos, Painel de Configuração, Barra de Reprodução, Thread de Simulação e Mapa).
 
+---
+
+### 6.2 Diagrama de Classes UML
 ![Diagrama de Classes UML](../../diagramas/diagrama_de_classe/diagrama_de_classe_epidemia.png)
 
+**Resumo do Diagrama de Classes:**
+- **Unificação pelo Protocolo `Timeline` (`LinhaDoTempo`):** A interface central `Timeline` define as operações de leitura (`diasDisponiveis()`, `estadosVertices(dia)` e `contagemPaises(dia)`). Tanto `SimulationTimeline` (`LinhaDoTempoSimulada`, que lê os snapshots binários de `StateBuffer`) quanto `RealTimeline` (`LinhaDoTempoReal`, que lê `PandemicSeries`) implementam esse contrato por tipagem estrutural, permitindo que o `PlaybackController` (`ControladorReproducao`) e o `ComparadorSimuladoReal` operem de forma transparente sobre os dois fluxos.
+- **Domínio da Simulação e Grafo:** `SimulationSession` (`SessaoSimulacao`) gerencia o ciclo de vida (`configurar`, `calibrarBeta`, `iniciar`, `executarDia`, `linhaDoTempo`, `reiniciar`), coordenando o `EpidemicEngine` (`MotorEpidemico`), a configuração imutável `SimulationConfig` e o objeto `World` (`Mundo`), o qual encapsula a estrutura própria `Graph` (`Grafo`).
+- **Camada de Apresentação e Comparação:** `MainWindow` (`JanelaPrincipal`) agrega uma instância de `SimulationSession`, uma de `RealSession` e o `PlaybackController`, além de acionar o módulo `comparison` para produzir o objeto `ComparisonResult` (`ResultadoComparacao` com `rmseCasos`, `diferencaDiaPico` e `diferencaTamanhoFinal`).
+
+---
+
 ### 6.3 Diagramas de Casos de Uso
-Os casos de uso dividem as interações do usuário entre os dois fluxos principais da aplicação, compartilhando o mesmo grafo global e os mesmos controles de reprodução da linha do tempo:
 
-#### Fluxo de Simulação
-Cobre a configuração dos parâmetros epidemiológicos, calibração de $\beta$, definição do paciente zero, execução com isolamento e vacinação automáticos, reprodução no player, visualização das curvas SEIRD, cálculo de métricas de rede e exportação de resultados (JSON, CSV e PNG):
+#### Fluxo de Simulação (`UC01` a `UC14`)
+![Diagrama de casos de uso do fluxo de simulação](../../diagramas/casos%20de%20uso/diagramas/casos%20de%20uso/fluxo%20de%20simula%C3%A7%C3%A3o.png)
 
-![Diagrama de casos de uso do fluxo de simulação](<../../diagramas/casos de uso/diagramas/casos de uso/fluxo de simulação.png>)
+**Resumo dos Casos de Uso — Fluxo de Simulação:**
+- **Atores:** `Usuário` (ator principal) e `Sistema de arquivos` (ator secundário acionado na persistência JSON e na exportação de resultados).
+- **Configuração e Partida (`UC01` a `UC07` e `UC13`):** O usuário abre o fluxo de simulação (`UC01`) e configura o cenário epidêmico (`UC02`), o que inclui obrigatoriamente (`<<include>>`) a definição do paciente zero (`UC04`, manual ou aleatório) e pode ser estendido (`<<extend>>`) pela calibração prévia de $\beta$ (`UC03`), salvamento (`UC05`) ou carregamento de configuração em JSON (`UC06`). O início da simulação (`UC07`) inclui a configuração validada, trava os parâmetros e pode ser estendido pelo reinício da simulação (`UC13`).
+- **Reprodução, Análise e Exportação (`UC08` a `UC12` e `UC14`):** Com a simulação em andamento, o usuário controla o player da linha do tempo (`UC08`), visualiza o mapa de propagação em duas camadas (`UC09`), acompanha o painel de resultados (`UC10`) e as curvas SEIRD (`UC11`), exporta séries e gráficos (`UC12`) e aciona o cálculo em segundo plano da análise de rede (`UC14`).
 
-#### Fluxo de Pandemias Reais
-Cobre a seleção de um dos quatro surtos históricos pré-processados (COVID-19, Ebola, H1N1 e SARS), reprodução temporal da incidência por 100 mil habitantes no mapa, consulta de totais por país e comparação quantitativa com a curva simulada:
+#### Fluxo de Pandemias Reais (`UC15` a `UC21`)
+![Diagrama de casos de uso do fluxo de pandemias reais](../../diagramas/casos%20de%20uso/diagramas/casos%20de%20uso/fluxo%20de%20pandemias%20reais.png)
 
-![Diagrama de casos de uso do fluxo de pandemias reais](<../../diagramas/casos de uso/diagramas/casos de uso/fluxo de pandemias reais.png>)
+**Resumo dos Casos de Uso — Fluxo de Pandemias Reais:**
+- **Seleção e Visualização Histórica (`UC15` a `UC19` e `UC21`):** Ao selecionar uma pandemia histórica (`UC16` — COVID-19, Ebola, H1N1 ou SARS, que inclui `UC15 Abrir fluxo de pandemias reais`), o sistema carrega os dados pré-processados para visualização da incidência por 100 mil habitantes no mapa (`UC17`). A partir da pandemia selecionada, o usuário pode reproduzir a evolução temporal (`UC18`), consultar os acumulados de um país clicado no mapa (`UC19`) ou retornar à lista de surtos (`UC21`).
+- **Comparação com o Modelo (`UC20`):** Quando há uma simulação concluída, o usuário pode acionar a comparação quantitativa entre a curva simulada e a série histórica real alinhadas pelo Dia 0.
 
 ---
 
