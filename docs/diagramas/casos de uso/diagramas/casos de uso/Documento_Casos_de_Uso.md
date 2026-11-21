@@ -142,8 +142,8 @@ Os trechos abaixo podem ser colados no PlantText para gerar os dois diagramas. A
 
 ### A.1. Fluxo de simulação
 
-![Diagrama de casos de uso do fluxo de simulação](<fluxo de simulação.png>)
+![Diagrama de casos de uso do fluxo de simulação](<fluxo de simulação atualizado.png>)
 
 ### A.2. Fluxo de pandemias reais
 
-![Diagrama de casos de uso do fluxo de pandemias reais](<fluxo de pandemias reais.png>)
+![Diagrama de casos de uso do fluxo de pandemias reais](<fluxo de pandemias reais atualizado.png>)
