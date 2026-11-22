@@ -196,11 +196,129 @@ No \textbf{Fluxo de Pandemias Reais} (Figura~\ref{fig:uc_real}, UC15--UC21), o u
 
 \section{Estruturas de Dados e Algoritmos de Grafos} \label{sec:algoritmos}
 
-In some conferences, the papers are published on CD-ROM while only the
-abstract is published in the printed Proceedings. In this case, authors are
-invited to prepare two final versions of the paper. One, complete, to be
-published on the CD and the other, containing only the first page, with
-abstract and ``resumo'' (for papers in Portuguese).
+Em conformidade com as diretrizes do trabalho e a restrição de não utilização de bibliotecas prontas de grafos (como \emph{NetworkX} ou \emph{igraph}) no código de produção, toda a infraestrutura computacional de representação, travessia e análise topológica foi integralmente projetada e implementada pela equipe. O desenho prioriza estruturas de dados contíguas e indexação inteira direta ($0 \dots V-1$), garantindo eficiência assintótica e mínimo consumo de memória em grafos com milhares de vértices.
+
+\subsection{Representação em Memória e Máscara Dinâmica de Arestas}
+
+O grafo global é encapsulado na classe \texttt{Graph} (\texttt{core/graph/graph.py}), modelado como um grafo não direcionado e ponderado $G = (V, E)$. Internamente, a representação combina lista de adjacência indexada e vetores densos:
+
+\begin{itemize}
+  \item \textbf{Adjacência indexada:} para cada vértice $u \in \{0, \dots, V-1\}$, a estrutura \texttt{\_adj[u]} consiste em um dicionário que mapeia cada vizinho $v$ ao índice único da aresta correspondente $e \in \{0, \dots, E-1\}$. Esse arranjo híbrido permite iterar sobre vizinhos em tempo proporcional ao grau $O(k_u)$ e verificar adjacência direta $u \sim v$ em tempo médio $O(1)$.
+  \item \textbf{Vetores densos de atributos:} pesos brutos $w_e$ e custos de distância efetiva $c_e$ são mantidos em listas contíguas (\texttt{\_weights} e \texttt{\_costs}), eliminando redundância direcional e maximizando a localidade de referência espacial.
+  \item \textbf{Máscaras dinâmicas de estados (\emph{Bitmasks}):} para reproduzir o isolamento sanitário de infectados (quarentena, UC05) sem mutações topológicas de alto custo, empregam-se vetores de \texttt{bytearray} (\texttt{\_vertex\_isolated} e \texttt{\_edge\_active}). O isolamento ocorre em tempo estritamente constante $O(1)$ por atribuição binária:
+  \begin{equation}
+  \mathrm{isolado}[u] \gets 1 \implies \forall v \in N(u), \quad (u, v) \text{ é ignorado na travessia ativa}.
+  \end{equation}
+\end{itemize}
+
+Os iteradores de vizinhança (\texttt{neighbors(u, only\_active=True)}) consultam as máscaras em tempo real, evitando a remoção e reinserção física de arestas e preservando o espaço rigorosamente em $O(V + E)$.
+
+\subsection{Travessias Fundamentais e Conectividade}
+
+O módulo \texttt{core/graph/traversal.py} fornece os algoritmos clássicos de exploração de redes:
+
+\subsubsection{Busca em Largura (BFS) e Raios de Contágio}
+A BFS computa distâncias geodésicas (número de saltos) a partir de uma origem $s$, empregando fila FIFO (\texttt{collections.deque}) e vetor de distâncias com sentinela $-1$. Sob a hipótese de transmissão homogênea por contato, o algoritmo determina o avanço em ondas de choque da doença e o raio de contágio em tempo $O(V + E)$ e espaço auxiliar $O(V)$.
+
+\subsubsection{Busca em Profundidade (DFS) Iterativa}
+A exploração profunda de caminhos previne estouro de pilha de recursão (\texttt{RecursionError}) em grafos com $V = 8.000$ mediante implementação puramente iterativa com pilha explícita (\texttt{stack}) contendo tuplas do vértice corrente e o iterador de adjacência. Opera em tempo $O(V + E)$ e espaço $O(V)$, rastreando cadeias lineares de dispersão.
+
+\subsubsection{Decomposição em Componentes Conexas}
+Obtida via BFS sucessivas a partir de nós não visitados em tempo $O(V + E)$. Na fase de pré-voo, identifica a componente gigante global (assegurando difusão transnacional) e mapeia microestados ou ilhas sem conexões aéreas comerciais (ex.: Andorra e San Marino), prevenindo bloqueios ou laços na simulação.
+
+\subsection{Caminho Mínimo e Distância Efetiva Epidemiológica}
+
+A modelagem de rotas críticas de dispersão utiliza o Algoritmo de Dijkstra (\texttt{core/graph/shortest\_path.py}) com fila de prioridades baseada em \emph{min-heap} binário (\texttt{heapq}) em $O((V + E) \log V)$.
+
+Conforme a teoria da geometria oculta de contágio de Brockmann e Helbing~\cite{brockmann2013}, a probabilidade de contágio $p_{uv} = 1 - \exp(-\beta w_{uv}) \in (0, 1)$ associada à aresta $(u, v)$ é convertida no custo aditivo de distância efetiva:
+\begin{equation}
+c_{uv} = -\ln(p_{uv}) > 0.
+\end{equation}
+
+A positividade estrita de $c_{uv}$ atende à premissa do algoritmo de Dijkstra. A propriedade central reside na equivalência entre a minimização da soma de distâncias efetivas ao longo de uma trajetória $P = (v_0, \dots, v_k)$ e a maximização da probabilidade conjunta independente de transmissão $\Pr(P)$:
+\begin{equation}
+\min \sum_{i=0}^{k-1} c_{v_i, v_{i+1}} = \min \left[ -\sum_{i=0}^{k-1} \ln(p_{v_i, v_{i+1}}) \right] \iff \max \prod_{i=0}^{k-1} p_{v_i, v_{i+1}} = \max \Pr(P).
+\end{equation}
+
+O relaxamento padrão com vetores $\mathrm{dist}$ e $\mathrm{parent}$ viabiliza reconstruir o trajeto aéreo mais vulnerável que conecta um foco epidêmico remoto a qualquer centro urbano receptor.
+
+\subsection{Vulnerabilidade Estrutural: Pontes e Articulações de Tarjan}
+
+A detecção de gargalos críticos de transporte baseia-se no algoritmo de Tarjan~\cite{tarjan1972} (\texttt{core/analysis/bridges.py}), que localiza conjuntamente \textbf{pontes} (\emph{bridges}) e \textbf{pontos de articulação} (\emph{cut vertices}) em uma única varredura linear $O(V + E)$.
+
+O algoritmo mantém os marcadores inteiros $\mathrm{tin}[u]$ (tempo de descoberta) e $\mathrm{low}[u]$ (menor $\mathrm{tin}$ alcançável por no máximo uma aresta de retorno na subárvore):
+\begin{equation}
+\mathrm{low}[u] = \min \left( \mathrm{tin}[u], \, \min_{(u, v) \in E_{\mathrm{árv}}} \mathrm{low}[v], \, \min_{(u, v) \in E_{\mathrm{ret}}} \mathrm{tin}[v] \right).
+\end{equation}
+
+As condições de corte são avaliadas diretamente:
+\begin{itemize}
+  \item A aresta de árvore $(u, v)$ é \textbf{ponte} se e somente se $\mathrm{low}[v] > \mathrm{tin}[u]$, comprovando a ausência de rota alternativa para ancestrais de $u$.
+  \item O vértice $u$ é \textbf{articulação} se for a raiz da DFS com pelo menos dois filhos, ou se não for raiz e possuir filho $v$ tal que $\mathrm{low}[v] \ge \mathrm{tin}[u]$.
+\end{itemize}
+
+A implementação foi concebida de forma \textbf{iterativa com pilha explícita}, simulando a pós-ordem de recursão e operando estritamente em $O(V + E)$ de tempo e $O(V)$ de espaço auxiliar. Epidemiologicamente, a identificação de pontes indica rotas aéreas exclusivas cuja interrupção fragmenta a transmissão entre continentes.
+
+\subsection{Métricas Topológicas e Centralidade de Intermediação}
+
+O módulo \texttt{core/analysis/metrics.py} computa as propriedades macroscópicas da rede:
+
+\subsubsection{Grau Médio e Coeficiente de Agrupamento}
+O grau médio $\langle k \rangle = \frac{2E}{V}$ é calculado em $O(V + E)$. O agrupamento local mede a transitividade entre contatos de um nó $u$:
+\begin{equation}
+C_u = \frac{2 \sum_{v, w \in N(u), v < w} A_{vw}}{k_u (k_u - 1)} \quad (C_u = 0 \text{ se } k_u < 2),
+\end{equation}
+sendo computado em $O(\sum_{v} k_v^2)$ via intersecção de vizinhanças. A média $\langle C \rangle = \frac{1}{V} \sum_{u} C_u$ evidencia o regime de mundo pequeno da rede.
+
+\subsubsection{Centralidade de Intermediação de Brandes (Exata vs. Amostrada)}
+A intermediação quantifica o controle de nós sobre os caminhos mínimos da rede:
+\begin{equation}
+C_B(v) = \sum_{s \neq v \neq t \in V} \frac{\sigma_{st}(v)}{\sigma_{st}}.
+\end{equation}
+
+A formulação exata de Brandes opera em $O(V(V + E))$, sendo computacionalmente proibitiva para execução interativa com $V = 8.000$. Implementou-se, portanto, a \textbf{intermediação aproximada por amostragem}: avaliam-se $k = 25$ pivôs uniformemente distribuídos com semente determinística, escalando a métrica por $V / k$:
+\begin{equation}
+\tilde{C}_B(v) = \frac{V}{k} \sum_{s \in S_{\mathrm{amostra}}} \sum_{t \neq s, t \neq v} \frac{\sigma_{st}(v)}{\sigma_{st}}.
+\end{equation}
+
+A abordagem reduz a complexidade para $O(k(V + E))$, permitindo atualização em tempo real na interface com preservação da hierarquia dos principais centros de conexão.
+
+\subsection{Detecção de Comunidades por Propagação de Rótulos (LPA)}
+
+Para delimitar agrupamentos geopolíticos e de tráfego aéreo coesos sem os custos proibitivos de modularidade, adotou-se o algoritmo LPA (\emph{Label Propagation Algorithm})~\cite{raghavan2007} em \texttt{core/analysis/communities.py}. Operando sobre o grafo contraído por país, cada entidade inicia com rótulo próprio ($L_i^{(0)} = i$) e, a cada passo, assume assincronamente a comunidade dominante de sua vizinhança ponderada:
+\begin{equation}
+L_i^{(t)} = \operatorname{argmax}_l \sum_{j \in N(i), L_j = l} W_{ij},
+\end{equation}
+onde $W_{ij}$ representa o fluxo agregado de voos. Desempates lexicográficos rígidos garantem convergência estável em até $t_{\max} = 30$ iterações, operando em tempo quase-linear $O(t_{\max}(V + E))$ e particionando a malha em blocos epidemiológicos regionais coerentes.
+
+\subsection{Quadro Comparativo de Complexidade Assintótica}
+
+A Tabela~\ref{tab:complexidade_algoritmos} consolida as garantias assintóticas de todas as operações de rede desenvolvidas no projeto.
+
+\begin{table}[!ht]
+\centering
+\caption{Análise comparativa de complexidade assintótica dos algoritmos de grafos implementados.}
+\label{tab:complexidade_algoritmos}
+\footnotesize
+\renewcommand{\arraystretch}{0.95}
+\begin{tabular}{llllp{4.0cm}}
+\hline
+\textbf{Algoritmo / Operação} & \textbf{Módulo} & \textbf{Tempo (Pior)} & \textbf{Espaço} & \textbf{Aplicação Epidemiológica} \\
+\hline
+Construção do Grafo (Grid) & \texttt{world/builder} & $O(V + E)$ & $O(V + E)$ & Geração do grafo RGG intra-país. \\
+Máscara de Isolamento & \texttt{core/graph} & $O(1)$ & $O(V)$ & Quarentena sem mutar topologia. \\
+Busca em Largura (BFS) & \texttt{core/graph} & $O(V + E)$ & $O(V)$ & Raios de onda e distâncias em saltos. \\
+Busca em Profundidade (DFS) & \texttt{core/graph} & $O(V + E)$ & $O(V)$ & Rastreio de cadeias e conectividade. \\
+Componentes Conexas & \texttt{core/graph} & $O(V + E)$ & $O(V)$ & Verificação da componente gigante. \\
+Dijkstra (Distância Efetiva) & \texttt{core/graph} & $O((V+E)\log V)$ & $O(V)$ & Rota mais provável de contágio ($-\ln p$). \\
+Pontes e Articulações (Tarjan) & \texttt{core/analysis} & $O(V + E)$ & $O(V)$ & Identificação de gargalos e cortes. \\
+Grau e Agrupamento Médio & \texttt{core/analysis} & $O(\sum k_v^2)$ & $O(V)$ & Conectividade e panelas sociais. \\
+Intermediação Exata (Brandes) & \texttt{core/analysis} & $O(V(V + E))$ & $O(V + E)$ & Importância global de hubs (offline). \\
+Intermediação Amostrada ($k$) & \texttt{core/analysis} & $O(k(V + E))$ & $O(V)$ & Cálculo interativo no painel em tempo real. \\
+Propagação de Rótulos (LPA) & \texttt{core/analysis} & $O(t_{\max}(V + E))$ & $O(V + E)$ & Detecção de super-hubs comunitários. \\
+\hline
+\end{tabular}
+\end{table}
 
 \section{Dinâmica Epidêmica e Integração de Dados Reais} \label{sec:dinamica}
 
@@ -318,12 +436,23 @@ Como trabalhos futuros, destacam-se: (i) a inclusão de geradores topológicos l
 
 \section{Responsabilidades dos Integrantes e Conclusão} \label{sec:conclusao}
 
-All images and illustrations should be in black-and-white, or gray tones,
-excepting for the papers that will be electronically available (on CD-ROMs,
-internet, etc.). The image resolution on paper should be about 600 dpi for
-black-and-white images, and 150-300 dpi for grayscale images.  Do not include
-images with excessive resolution, as they may take hours to print, without any
-visible difference in the result. 
+\subsection{Divisão de Responsabilidades}
+
+O projeto foi executado de forma modular e colaborativa em cinco frentes coordenadas:
+
+\begin{itemize}
+  \item \textbf{Luiz Felipe Ribeiro Souza (M1):} modelagem do grafo unificado, alocação iterativa populacional ($n_{\min} = 12$), rede geométrica 2D, Dijkstra com distância efetiva, travessias e sementes determinísticas SHA-256.
+  \item \textbf{João Prado Campos (M3):} motor estocástico SEIRD diário, calibração iterativa de $\beta$, parametrização de intervenções (quarentena e vacina), buffer de estados de 1 byte/nó e protocolo estrutural \texttt{Timeline}.
+  \item \textbf{Fillipe Gabriel Costa Araujo (M2):} algoritmo de Tarjan iterativo para pontes e articulações em tempo linear, detecção de comunidades por LPA, métricas de rede e suite de \emph{benchmarks} contra o \emph{NetworkX}.
+  \item \textbf{Henrique Pereira Resende Rocha (M4):} pipeline de dados offline com 135 aliases e 229 soberanias, resolução de anomalias no antimeridiano, carregadores em biblioteca padrão, \texttt{RealTimeline} e comparador quantitativo (MSE/picos, RF14).
+  \item \textbf{Daniel Bony Costa Garcia (M5):} interface gráfica em PySide6/Qt, renderização em lote via \texttt{QPainter} com histerese de escala, gráficos em tempo real com \texttt{pyqtgraph}, controlador de reprodução e diálogos de exportação.
+\end{itemize}
+
+\subsection{Conclusão}
+
+O projeto demonstrou a viabilidade de modelar e simular dinâmicas epidêmicas globais a partir de estruturas e algoritmos próprios de Teoria dos Grafos, concebidos e implementados integralmente sem o uso de bibliotecas de terceiros para o processamento de redes. A representação multiescala proposta acoplou de forma coerente a contiguidade espacial intranacional e a dispersão internacional viabilizada pela aviação civil, evidenciando experimentalmente como a topologia estrutural direciona as trajetórias e velocidades de contágio de um patógeno, superando as hipóteses reducionistas dos modelos homogêneos de equações diferenciais puras.
+
+A adoção de vetores densos e listas nativas indexadas, associada a máscaras binárias dinâmicas para o isolamento de vértices em tempo constante, garantiu excelente rendimento computacional, sustentando taxas estáveis de 40 quadros por segundo para $V = 8.000$ vértices e superando o \emph{NetworkX} em operações analíticas intensivas, como o algoritmo de Tarjan e o coeficiente de agrupamento. Além disso, a arquitetura unificada sob o protocolo \texttt{Timeline} possibilitou o confronto quantitativo direto entre o modelo simulado e séries epidemiológicas empíricas da COVID-19, SARS, H1N1 e Ebola, estabelecendo uma ferramenta didática e analítica robusta para a compreensão do papel das redes complexas na contenção de pandemias. 
 
 \section{Referências Bibliográficas}
 
