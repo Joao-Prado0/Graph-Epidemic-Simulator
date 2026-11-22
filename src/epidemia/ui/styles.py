@@ -491,4 +491,28 @@ QScrollArea {{
     background: transparent;
     border: none;
 }}
+
+QMessageBox {{
+    background-color: {BG_CARD_HEX};
+    color: {TEXT_PRIMARY_HEX};
+}}
+
+QMessageBox QLabel {{
+    color: {TEXT_PRIMARY_HEX};
+    background: transparent;
+}}
+
+QMessageBox QPushButton {{
+    background-color: #16232b;
+    color: {TEXT_PRIMARY_HEX};
+    border: 1px solid {BORDER_SUBTLE_HEX};
+    border-radius: 6px;
+    padding: 6px 18px;
+    min-width: 70px;
+}}
+
+QMessageBox QPushButton:hover {{
+    background-color: #1e3542;
+    border-color: {ACCENT_TEAL_HEX};
+}}
 """
