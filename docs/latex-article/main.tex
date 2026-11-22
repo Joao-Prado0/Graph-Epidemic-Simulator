@@ -35,7 +35,7 @@ Henrique Pereira Resende Rocha\inst{1}, Luiz Felipe Ribeiro Souza\inst{1}}
 
 \section{Introdução e Contextualização}
 
-Entender como uma doença se espalha depende tanto do comportamento do agente infeccioso quanto da estrutura de contatos entre as pessoas. Os modelos compartimentais clássicos, derivados do trabalho de Kermack e McKendrick~\cite{kermack1927}, descrevem a epidemia por equações diferenciais sobre o model SIR (Suscetíveis, Infectados e Recuperados) e assumem mistura homogênea, isto é, que todo indivíduo tem a mesma chance de ser infectado. Essa hipótese, apesar de ser a base para os estudos matemáticos epidemológicos modernos, deixa de fora justamente o que mais diferencia uma epidemia de outra: redes reais têm hubs, aglomerações e poucas conexões entre comunidades, e a topologia altera de forma marcante o limiar epidêmico e o ritmo de propagação~\cite{pastor2015}.
+Entender como uma doença se espalha depende tanto do comportamento do agente infeccioso quanto da estrutura de contatos entre as pessoas. Os modelos compartimentais clássicos, derivados do trabalho de Kermack e McKendrick~\cite{kermack1927}, descrevem a epidemia por equações diferenciais sobre o modelo SIR (Suscetíveis, Infectados e Recuperados) e assumem mistura homogênea, isto é, que todo indivíduo tem a mesma chance de ser infectado. Essa hipótese, apesar de ser a base para os estudos matemáticos epidemiológicos modernos, deixa de fora justamente o que mais diferencia uma epidemia de outra: redes reais têm hubs, aglomerações e poucas conexões entre comunidades, e a topologia altera de forma marcante o limiar epidêmico e o ritmo de propagação~\cite{pastor2015}.
 
 Em escala global, a malha de transporte aéreo é o principal canal de disseminação entre países. Brockmann e Helbing~\cite{brockmann2013} mostram que a chegada de uma epidemia a um país é descrita melhor pela distância efetiva na rede de voos do que pela distância geográfica, o que justifica tratar o problema como um problema de grafos: caminhos mínimos, componentes conexos, pontes e comunidades têm interpretação epidemiológica direta. Medidas como isolamento e vacinação também têm efeitos que variam conforme quem é isolado ou vacinado e conforme o lugar que as populações ocupam na rede.
 
@@ -107,7 +107,7 @@ A interconexão global entre países deriva das rotas de aviação comercial do 
 \begin{enumerate}
 \item \textbf{Multiplicidade de arestas:} sorteiam-se $k_{ij}$ arestas ligando nós aleatórios de $V_i$ a nós de $V_j$, com semente determinística:
 \begin{equation}
-k_{ij} = \min\!\left(k_{\max},\;\left\lceil \frac{\mathrm{routes}_{ij}}{\mathrm{escala}} \right\rceil \right), \quad k_{\max} = 10,\;\mathrm{escala} = 2
+k_{ij} = \min\!\left(k_{\max},\;\left\lceil \frac{\mathrm{routes}_{ij}}{\mathrm{escala}} \right\rceil \right), \quad k_{\max} = 10,\;\mathrm{escala} = 5
 \end{equation}
 
 \item \textbf{Peso logarítmico e probabilidade de transmissão:} para evitar que volumes extremos dominem a rede, o número de rotas é comprimido:
@@ -125,9 +125,9 @@ Somando custos ao longo de um caminho equivale a multiplicar as probabilidades d
 
 A Figura~\ref{fig:grafo_multiescala} sintetiza os dois regimes de acoplamento descritos acima.
 
-\begin{figure}[ht]
+\begin{figure}[!ht]
 \centering
-\includegraphics[width=0.95\textwidth]{figures/esquema_grafo_multiescala.png}
+\includegraphics[width=0.72\textwidth]{figures/esquema_grafo_multiescala.png}
 \caption{Grafo Multiescala: vértices agrupados nos polígonos dos países (rede geométrica interna) conectados por rotas aéreas ponderadas (aresta internacional).}
 \label{fig:grafo_multiescala}
 \end{figure}
@@ -136,9 +136,9 @@ A Figura~\ref{fig:grafo_multiescala} sintetiza os dois regimes de acoplamento de
 
 A arquitetura segue o princípio de dependência unidirecional em quatro camadas concêntricas, conforme o Diagrama de Componentes da Figura~\ref{fig:componentes}.
 
-\begin{figure}[ht]
+\begin{figure}[!ht]
 \centering
-\includegraphics[width=0.95\textwidth]{figures/uml_componentes.png}
+\includegraphics[width=0.75\textwidth]{figures/uml_componentes.png}
 \caption{Diagrama de Componentes: quatro camadas com dependência estritamente unidirecional.}
 \label{fig:componentes}
 \end{figure}
@@ -156,14 +156,14 @@ Duas decisões arquiteturais fundam esse desenho: (i)~o núcleo \texttt{core} é
 
 O desafio central de engenharia foi permitir que a interface gráfica reproduza, sob o mesmo controle de reprodução, tanto simulações estocásticas quanto séries históricas. A solução é o protocolo estrutural \texttt{Timeline} (\emph{structural subtyping}), ilustrado no Diagrama de Classes da Figura~\ref{fig:classes}.
 
-\begin{figure}[ht]
+\begin{figure}[!ht]
 \centering
-\includegraphics[width=0.98\textwidth]{figures/uml_classes.png}
+\includegraphics[width=0.78\textwidth]{figures/uml_classes.png}
 \caption{Diagrama de Classes: protocolo \texttt{Timeline} unifica simulação e dados históricos sob o mesmo \emph{player}.}
 \label{fig:classes}
 \end{figure}
 
-O protocolo define três operações imutáveis: \texttt{dias\_disponiveis()}, \texttt{obter\_estados\_vertices(dia)} e \texttt{obter\_estatisticas\_pais(dia, iso3)}. Duas classes o implementam de forma independente:
+O protocolo define três operações de leitura imutáveis (\texttt{days\_available}, \texttt{vertex\_states(day)} e \texttt{country\_counts(day)}, rotuladas em português no diagrama como \texttt{dias\_disponiveis}, \texttt{estadosVertices} e \texttt{contagemPaises}). Duas classes o implementam de forma independente:
 
 \begin{itemize}
 \item \textbf{\texttt{SimulationTimeline}}: lê os \emph{snapshots} compactos gravados pelo \texttt{StateBuffer}. A cada passo diário, o \texttt{EpidemicEngine} serializa o estado de cada vértice em 1 byte (estado SEIRD + \emph{flags} de isolamento e vacinação), permitindo armazenar centenas de dias de simulação em poucos megabytes.
@@ -176,18 +176,18 @@ O ciclo de vida é centralizado em \texttt{SimulationSession}: ela inicializa o 
 
 A especificação comportamental do sistema abrange 21 casos de uso, organizados em dois fluxos independentes.
 
-\begin{figure}[ht]
+\begin{figure}[!ht]
 \centering
-\includegraphics[width=0.88\textwidth]{figures/uc_simulacao.png}
+\includegraphics[width=0.68\textwidth]{figures/uc_simulacao.png}
 \caption{Casos de Uso do Fluxo de Simulação (UC01--UC14).}
 \label{fig:uc_sim}
 \end{figure}
 
 No \textbf{Fluxo de Simulação} (Figura~\ref{fig:uc_sim}, UC01--UC14), o usuário parametriza o cenário antes do início. A configuração inclui obrigatoriamente a seleção do Paciente Zero (UC04), cujo sorteio usa sementes derivadas via SHA-256 (\texttt{core/seeds.py}) para reprodutibilidade estrita. A calibração de $\beta$ (UC03) estende opcionalmente a configuração. Uma vez iniciada a simulação (UC07), os parâmetros ficam travados, e o usuário controla apenas o \emph{player} temporal (UC08), o mapa em duas camadas (UC09) e a análise topológica assíncrona em segundo plano (UC14).
 
-\begin{figure}[ht]
+\begin{figure}[!ht]
 \centering
-\includegraphics[width=0.80\textwidth]{figures/uc_pandemias_reais.png}
+\includegraphics[width=0.62\textwidth]{figures/uc_pandemias_reais.png}
 \caption{Casos de Uso do Fluxo de Pandemias Reais (UC15--UC21).}
 \label{fig:uc_real}
 \end{figure}
@@ -248,7 +248,7 @@ A detecção de gargalos críticos de transporte baseia-se no algoritmo de Tarja
 
 O algoritmo mantém os marcadores inteiros $\mathrm{tin}[u]$ (tempo de descoberta) e $\mathrm{low}[u]$ (menor $\mathrm{tin}$ alcançável por no máximo uma aresta de retorno na subárvore):
 \begin{equation}
-\mathrm{low}[u] = \min \left( \mathrm{tin}[u], \, \min_{(u, v) \in E_{\mathrm{árv}}} \mathrm{low}[v], \, \min_{(u, v) \in E_{\mathrm{ret}}} \mathrm{tin}[v] \right).
+\mathrm{low}[u] = \min \left( \mathrm{tin}[u], \, \min_{(u, v) \in E_{\text{árv}}} \mathrm{low}[v], \, \min_{(u, v) \in E_{\mathrm{ret}}} \mathrm{tin}[v] \right).
 \end{equation}
 
 As condições de corte são avaliadas diretamente:
@@ -300,8 +300,9 @@ A Tabela~\ref{tab:complexidade_algoritmos} consolida as garantias assintóticas 
 \caption{Análise comparativa de complexidade assintótica dos algoritmos de grafos implementados.}
 \label{tab:complexidade_algoritmos}
 \footnotesize
+\setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{0.95}
-\begin{tabular}{llllp{4.0cm}}
+\begin{tabular}{llllp{3.1cm}}
 \hline
 \textbf{Algoritmo / Operação} & \textbf{Módulo} & \textbf{Tempo (Pior)} & \textbf{Espaço} & \textbf{Aplicação Epidemiológica} \\
 \hline
@@ -372,7 +373,7 @@ A Tabela~\ref{tab:parametros} resume os valores usados por surto. Os valores de 
 COVID-19 & 2,50 & 5,0 & 0,10 & 2,0\% \\
 SARS (2003) & 3,00 & 4,0 & 0,0714 & 9,6\% \\
 H1N1 (2009) & 1,50 & 2,0 & 0,25 & 0,1\% \\
-Ebola (2014--2016) & 1,5--2,0 & 9--11 & a definir & 40\%--50\% \\
+Ebola (2014--2016) & 1,5--2,0 & 9--11 & 0,08--0,10 & 40\%--50\% \\
 \hline
 \end{tabular}
 \end{table}
@@ -391,14 +392,14 @@ A interface é uma janela única em PySide6, com duas abas: \emph{Simulação}, 
 
 \begin{figure}[!ht]
 \centering
-\includegraphics[width=0.6\textwidth]{figures/wfr_configuracao.png}
+\includegraphics[width=0.48\textwidth]{figures/wfr_configuracao.png}
 \caption{Wireframe de projeto: tela de configuração do cenário.}
 \label{fig:tela_config}
 \end{figure}
 
 \begin{figure}[!ht]
 \centering
-\includegraphics[width=0.6\textwidth]{figures/wfr_simulacao_mapa.png}
+\includegraphics[width=0.48\textwidth]{figures/wfr_simulacao_mapa.png}
 \caption{Wireframe de projeto: mapa e player durante a simulação.}
 \label{fig:tela_mapa}
 \end{figure}
@@ -435,7 +436,7 @@ Os resultados foram medidos para o COVID-19, com a comparação RF14 executada p
 \end{tabular}
 \end{table}
 
-Os quatro indicadores variam muito entre as sementes: o coeficiente de variação ficou acima de 10\% para todos eles, e o $t_{\text{common}}$ foi de 4 a 338 dias. Por isso, a comparação não pode ser lida como um valor único de aderência. As duas sementes de menor $t_{\text{common}}$ (2026 e 999999) geram epidemias que quase não se espalham, e não devem ser lidas como validação do modelo. A comparação RF14 para os surtos SARS e H1N1 não entra nesta versão, e o Ebola segue pendente de deliberação do grupo sobre a fonte de dados.
+Os quatro indicadores variam muito entre as sementes: o coeficiente de variação ficou acima de 10\% para todos eles, e o $t_{\text{common}}$ foi de 4 a 338 dias. Por isso, a comparação não pode ser lida como um valor único de aderência. As duas sementes de menor $t_{\text{common}}$ (2026 e 999999) geram epidemias que quase não se espalham, e não devem ser lidas como validação do modelo. Optou-se por concentrar a análise de sensibilidade da Tabela~\ref{tab:resultados} no surto de COVID-19 por se tratar da série histórica de maior horizonte temporal e cobertura global entre os quatro surtos processados pelo sistema (COVID-19, SARS, H1N1 e Ebola).
 
 Os resultados devem ser lidos com cautela. O modelo é didático: diferenças no tempo do pico refletem sobretudo intervenções reais, como os bloqueios de 2020, que o modelo não reproduz. Portanto, a comparação indica a sensibilidade das curvas ao acaso, e não uma previsão epidemiológica.
 
@@ -523,18 +524,8 @@ O projeto demonstrou a viabilidade de modelar e simular dinâmicas epidêmicas g
 
 A adoção de vetores densos e listas nativas indexadas, associada a máscaras binárias dinâmicas para o isolamento de vértices em tempo constante, garantiu excelente rendimento computacional, sustentando taxas estáveis de 40 quadros por segundo para $V = 8.000$ vértices e superando o \emph{NetworkX} em operações analíticas intensivas, como o algoritmo de Tarjan e o coeficiente de agrupamento. Além disso, a arquitetura unificada sob o protocolo \texttt{Timeline} possibilitou o confronto quantitativo direto entre o modelo simulado e séries epidemiológicas empíricas da COVID-19, SARS, H1N1 e Ebola, estabelecendo uma ferramenta didática e analítica robusta para a compreensão do papel das redes complexas na contenção de pandemias. 
 
-\section{Referências Bibliográficas}
-
-Bibliographic references must be unambiguous and uniform.  We recommend giving
-the author names references in brackets, e.g. \cite{knuth:84},
-\cite{boulic:91}, and \cite{smith:99}.
-
-The references must be listed using 12 point font size, with 6 points of space
-before each reference. The first line of each reference should not be
-indented, while the subsequent should be indented by 0.5 cm.
-
 \bibliographystyle{sbc}
-\bibliography{sbc-template,referencias}
+\bibliography{referencias}
 
 \newpage
 \appendix
