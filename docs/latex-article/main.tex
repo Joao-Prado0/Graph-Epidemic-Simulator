@@ -322,53 +322,122 @@ Propagação de Rótulos (LPA) & \texttt{core/analysis} & $O(t_{\max}(V + E))$ &
 
 \section{Dinâmica Epidêmica e Integração de Dados Reais} \label{sec:dinamica}
 
-Section titles must be in boldface, 13pt, flush left. There should be an extra
-12 pt of space before each title. Section numbering is optional. The first
-paragraph of each section should not be indented, while the first lines of
-subsequent paragraphs should be indented by 1.27 cm.
+A propagação avança em passos diários. Cada vértice está em um de cinco estados: suscetível ($S$), exposto ($E$), infeccioso ($I$), recuperado ($R$) ou óbito ($D$). Taxas contínuas são convertidas em probabilidades diárias pela forma $P = 1 - \exp(-\lambda)$, o que mantém as probabilidades dentro de $[0,1]$.
 
-\subsection{Subsections}
+\subsection{Transições e desfecho}
 
-The subsection titles must be in boldface, 12pt, flush left.
+Um vértice suscetível $u$ é exposto com probabilidade
+\begin{equation}
+P(S \to E) = 1 - \exp\left(-\beta \sum_{v \in N(u) \cap I} w_{uv}\right),
+\end{equation}
+em que $w_{uv}$ é o peso da aresta e $\beta$ é a transmissibilidade calibrada. Expostos tornam-se infecciosos com probabilidade $P(E \to I) = 1 - \exp(-1/d_{\text{incub}})$, onde $d_{\text{incub}}$ é o período médio de incubação. Um infeccioso deixa o estado $I$ com probabilidade $P_{\text{saída}} = 1 - \exp(-\gamma)$. Nessa saída, o vértice vai para $D$ com probabilidade $\mu$ (letalidade) e para $R$ com probabilidade $1 - \mu$. Os óbitos são absorventes; os recuperados mantêm a imunidade durante o horizonte da simulação.
 
-\section{Interface Gráfica e Resultados Experimentais} \label{sec:interface}\label{sec:figs}
+\subsection{Isolamento e vacinação}
 
+Infecciosos são detectados e isolados com probabilidade diária $p_{\text{iso}}$. O isolamento desativa temporariamente todas as arestas do vértice por $d_{\text{iso}}$ dias, por meio de uma máscara binária, sem reescrever a lista de adjacências. Ao final do período, o vértice volta com a vizinhança original, se ainda estiver ativo. A vacinação começa no dia $t_{\text{vac}}$ e move, a cada dia, uma fração $f_{\text{vac}}$ dos suscetíveis para $R$, com eficácia $\eta = 0{,}80$. Os vacinados recebem uma marcação própria, para não serem confundidos com recuperados por infecção. O simulador oferece três níveis de intervenção (baixo, médio e alto) e um cenário sem intervenção.
 
-Figure and table captions should be centered if less than one line
-(Figure~\ref{fig:exampleFig1}), otherwise justified and indented by 0.8cm on
-both margins, as shown in Figure~\ref{fig:exampleFig2}. The caption font must
-be Helvetica, 10 point, boldface, with 6 points of space before and after each
-caption.
+\subsection{Calibração de $\beta$}
 
-\begin{figure}[ht]
+Em redes heterogêneas, $R_0$ não é igual a $\beta/\gamma$. Por isso, $\beta$ é ajustado por bisseção: em cada iteração, o simulador executa réplicas curtas a partir do paciente zero, mede o número médio de transmissões secundárias e compara com o $R_0$ informado. A busca termina quando a diferença relativa fica abaixo de 1\%.
+
+\subsection{Dados reais}
+
+Os dados históricos vêm de quatro fontes: o \emph{Our World in Data}~\cite{owid_covid_2023} fornece a população e os dados mestres de COVID-19; a base da JHU~\cite{jhu_kaggle_covid} traz os casos de COVID-19; SARS, H1N1 e Ebola vêm de conjuntos curados no Kaggle~\cite{kaggle_sars,kaggle_h1n1,kaggle_ebola}; as rotas e os aeroportos vêm da base OpenFlights; e os polígonos dos países vêm da Natural Earth, na escala 1:50m. O pipeline padroniza os nomes para códigos ISO 3166-1 alfa-3, descarta agregados não nacionais e reúne os territórios ultramarinos ao país-mãe. Cada série territorial recebe calendário diário contínuo, preenchimento pelo último valor válido e a função \texttt{cummax}, para que o acumulado nunca diminua antes de ser somado ao país. Há ainda uma regra específica para a Libéria no Ebola, que mantém, por data, a linha de maior número de casos. Recuperados só existem na série da SARS, a única com esse registro.
+
+\subsection{Cenário regional}
+
+No cenário regional, são elegíveis os países que acumulam 10 casos nos primeiros 60 dias da série. Os demais recebem o piso de 12 vértices, e o restante do orçamento é redistribuído por população entre os países do foco. Essa redistribuição ocorre na construção do grafo, antes da simulação. O grafo continua global, para que as rotas aéreas permaneçam.
+
+\subsection{Comparação com dados reais}
+
+A comparação alinha as duas curvas pelo Dia 0, definido como o primeiro dia em que a simulação atinge o limiar $M$ de casos (por padrão, $M = 1$). Na série real, o equivalente é o dia em que os casos superam a fração proporcional à população. Em seguida, as curvas são normalizadas pela população de referência: $c_{\text{sim}}(t) = C_{\text{sim}}(t)/N_{\text{pop}}$ e $c_{\text{real}}(t) = C_{\text{real}}(t)/P_{\text{pop}}$, com $C_{\text{sim}}(t) = I(t) + R(t) + D(t)$ e os óbitos iguais a $D(t)$. Sobre os $T$ dias de sobreposição, calculam-se:
+\begin{equation}
+\mathrm{MSE}_{\text{casos}} = \frac{1}{T}\sum_{t=0}^{T-1}\bigl(c_{\text{sim}}(t) - c_{\text{real}}(t)\bigr)^2, \qquad \mathrm{RMSE}_{\text{casos}} = \sqrt{\mathrm{MSE}_{\text{casos}}},
+\end{equation}
+com as mesmas definições para os óbitos. Também se reporta a defasagem do pico de novos casos, $\Delta t_{\text{pico}} = t_{\text{pico,sim}} - t_{\text{pico,real}}$, e a diferença de tamanho final, $\Delta S_{\infty} = c_{\text{sim}}(T-1) - c_{\text{real}}(T-1)$.
+
+\subsection{Parâmetros clínicos}
+
+A Tabela~\ref{tab:parametros} resume os valores usados por surto. Os valores de COVID-19 seguem Ferguson et al.~\cite{ferguson2005}; os da SARS, Lipsitch et al.~\cite{lipsitch2003} e Donnelly et al.~\cite{donnelly2003}; os da H1N1, Fraser et al.~\cite{fraser2009}; e os do Ebola, Lessler et al.~\cite{lessler2009}.
+
+\begin{table}[!ht]
 \centering
-\includegraphics[width=.5\textwidth]{fig1.jpg}
-\caption{A typical figure}
-\label{fig:exampleFig1}
-\end{figure}
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=.3\textwidth]{fig2.jpg}
-\caption{This figure is an example of a figure caption taking more than one
-  line and justified considering margins mentioned in Section~\ref{sec:figs}.}
-\label{fig:exampleFig2}
-\end{figure}
-
-In tables, try to avoid the use of colored or shaded backgrounds, and avoid
-thick, doubled, or unnecessary framing lines. When reporting empirical data,
-do not use more decimal digits than warranted by their precision and
-reproducibility. Table caption must be placed before the table (see Table 1)
-and the font used must also be Helvetica, 10 point, boldface, with 6 points of
-space before and after each caption.
-
-\begin{table}[ht]
-\centering
-\caption{Variables to be considered on the evaluation of interaction
-  techniques}
-\label{tab:exTable1}
-\includegraphics[width=.7\textwidth]{table.jpg}
+\caption{Parâmetros clínicos usados em cada surto.}
+\label{tab:parametros}
+\footnotesize
+\begin{tabular}{lrrrr}
+\hline
+\textbf{Surto} & \textbf{$R_0$} & \textbf{Incubação (dias)} & \textbf{$\gamma$} & \textbf{Letalidade} \\
+\hline
+COVID-19 & 2,50 & 5,0 & 0,10 & 2,0\% \\
+SARS (2003) & 3,00 & 4,0 & 0,0714 & 9,6\% \\
+H1N1 (2009) & 1,50 & 2,0 & 0,25 & 0,1\% \\
+Ebola (2014--2016) & 1,5--2,0 & 9--11 & a definir & 40\%--50\% \\
+\hline
+\end{tabular}
 \end{table}
+
+\section{Interface Gráfica e Resultados Experimentais} \label{sec:interface}
+
+A interface é uma janela única em PySide6, com duas abas: \emph{Simulação}, para configurar e executar um cenário, e \emph{Pandemias reais}, para reproduzir surtos históricos sobre o mesmo mapa. As figuras mostram a organização das telas; são wireframes de projeto, e a versão implementada segue a mesma estrutura.
+
+\subsection{Componentes}
+
+\begin{itemize}
+\item \textbf{Execução em segundo plano.} A simulação roda em uma \texttt{QThread} (\texttt{SimulationThread}). A cada dia gravado, a thread emite o sinal \texttt{day\_ready}, e a interface só lê dias já anunciados. Assim, a janela responde durante o cálculo.
+\item \textbf{Player.} Controles de play, pausa, avanço e recuo de um dia, velocidades $\times 1$, $\times 2$, $\times 5$ e $\times 10$, e arraste pela barra de dias. O player só lê o histórico gravado e nunca recalcula a simulação. Reiniciar descarta o histórico.
+\item \textbf{Mapa.} Os polígonos dos países são pintados pelo estado dominante do dia, na simulação, ou pela incidência por 100 mil habitantes, nos dados reais. Os vértices aparecem apenas em países com pelo menos 40~px de largura na tela e somem abaixo de 36~px, para limitar o custo de desenho.
+\end{itemize}
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=0.6\textwidth]{figures/wfr_configuracao.png}
+\caption{Wireframe de projeto: tela de configuração do cenário.}
+\label{fig:tela_config}
+\end{figure}
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=0.6\textwidth]{figures/wfr_simulacao_mapa.png}
+\caption{Wireframe de projeto: mapa e player durante a simulação.}
+\label{fig:tela_mapa}
+\end{figure}
+
+\subsection{Fluxo de uso}
+
+A tela inicial apresenta os dois fluxos disponíveis, \emph{Simulação} e \emph{Pandemias reais}, e permite carregar uma configuração salva em JSON. No fluxo de simulação, a aba \emph{Simulação} reúne três blocos: parâmetros da doença, intervenção e cenário/execução. A partir deles, o usuário calibra $\beta$, salva ou carrega a configuração e inicia a execução. Ao iniciar, os campos ficam travados para preservar a reprodutibilidade, e o controle passa a ser apenas da reprodução. No fluxo de pandemias reais, o usuário escolhe um dos surtos embutidos e reproduz a série histórica no mesmo mapa e com o mesmo player.
+
+\subsection{Painel de resultados}
+
+O painel lateral resume a epidemia: casos ativos no dia, pico de casos ativos e dia do pico, duração do surto, óbitos totais, letalidade e $R_0$ efetivo estimado a partir do crescimento inicial. A seção de comparação científica permite escolher uma pandemia real e exibe os quatro valores da RF14. Enquanto não houver pandemia carregada ou simulação concluída, esses campos mostram ``Indisponível'' e o motivo.
+
+A seção de métricas da rede é calculada sob demanda, para não bloquear a interface. Ela apresenta o número de vértices, os países sem rota aérea, as componentes conexas, as pontes e os pontos de articulação, o grau médio e máximo, a intermediação aproximada, o agrupamento médio e as comunidades por país. O número de fontes usadas na intermediação aproximada é configurável na própria tela.
+
+\subsection{Resultados experimentais}
+
+Os resultados foram medidos para o COVID-19, com a comparação RF14 executada pelo próprio app. A Tabela~\ref{tab:resultados} mostra a sensibilidade desses valores à semente: o mesmo surto, com os mesmos parâmetros da Tabela~\ref{tab:parametros}, foi rodado com cinco sementes, e o paciente zero é sorteado a cada uma delas.
+
+\begin{table}[!ht]
+\centering
+\caption{Sensibilidade da comparação RF14 à semente, para o COVID-19 (cinco sementes, mesmos parâmetros da Tabela~\ref{tab:parametros}, paciente zero sorteado por semente).}
+\label{tab:resultados}
+\footnotesize
+\begin{tabular}{rrrrrr}
+\hline
+\textbf{Semente} & \textbf{$\beta$} & \textbf{$t_{\text{common}}$ (dias)} & \textbf{MSE casos} & \textbf{$\Delta t_{\text{pico}}$ (dias)} & \textbf{$\Delta S_{\infty}$} \\
+\hline
+334747 & 0,0721 & 309 & 0,2377 & $-143$ & $+0,654$ \\
+1      & 0,0550 & 338 & 0,1602 & $-131$ & $+0,532$ \\
+42     & 0,0270 & 95  & $1{,}7\times10^{-6}$ & $+29$ & $+0,001$ \\
+2026   & 0,0477 & 4   & $4{,}8\times10^{-10}$ & $0$ & $-0,000$ \\
+999999 & 0,0367 & 5   & $7{,}4\times10^{-10}$ & $0$ & $-0,000$ \\
+\hline
+\end{tabular}
+\end{table}
+
+Os quatro indicadores variam muito entre as sementes: o coeficiente de variação ficou acima de 10\% para todos eles, e o $t_{\text{common}}$ foi de 4 a 338 dias. Por isso, a comparação não pode ser lida como um valor único de aderência. As duas sementes de menor $t_{\text{common}}$ (2026 e 999999) geram epidemias que quase não se espalham, e não devem ser lidas como validação do modelo. A comparação RF14 para os surtos SARS e H1N1 não entra nesta versão, e o Ebola segue pendente de deliberação do grupo sobre a fonte de dados.
+
+Os resultados devem ser lidos com cautela. O modelo é didático: diferenças no tempo do pico refletem sobretudo intervenções reais, como os bloqueios de 2020, que o modelo não reproduz. Portanto, a comparação indica a sensibilidade das curvas ao acaso, e não uma previsão epidemiológica.
 
 \section{Avaliação de Desempenho e Benchmarks} \label{sec:desempenho}
 
