@@ -4,6 +4,7 @@
 \usepackage{graphicx,url}
 \usepackage[utf8]{inputenc}
 \usepackage[brazil]{babel}
+\usepackage{amsmath,amssymb}
 %\usepackage[latin1]{inputenc}  
 
      
@@ -59,22 +60,139 @@ O grafo unificado é construído em três etapas. Cada país recebe um número d
 
 A Seção~\ref{sec:modelagem} apresenta a modelagem do grafo e a arquitetura, com os diagramas UML. A Seção~\ref{sec:algoritmos} descreve as estruturas de dados e os algoritmos, com sua complexidade. A Seção~\ref{sec:dinamica} trata da dinâmica epidêmica e da integração com dados reais. A Seção~\ref{sec:interface} mostra a interface e os resultados. A Seção~\ref{sec:desempenho} avalia o desempenho e a Seção~\ref{sec:limitacoes} discute as limitações. A Seção~\ref{sec:conclusao} indica as responsabilidades de cada integrante e conclui. Os \emph{wireframes} das telas estão no Apêndice~\ref{sec:apendice_wireframes}.
 
-\section{Modelagem Teórica do Grafo e Arquitetura UML} \label{sec:modelagem} \label{sec:firstpage}
+\section{Modelagem Teórica do Grafo e Arquitetura UML} \label{sec:modelagem}
 
-The first page must display the paper title, the name and address of the
-authors, the abstract in English and ``resumo'' in Portuguese (``resumos'' are
-required only for papers written in Portuguese). The title must be centered
-over the whole page, in 16 point boldface font and with 12 points of space
-before itself. Author names must be centered in 12 point font, bold, all of
-them disposed in the same line, separated by commas and with 12 points of
-space after the title. Addresses must be centered in 12 point font, also with
-12 points of space after the authors' names. E-mail addresses should be
-written using font Courier New, 10 point nominal size, with 6 points of space
-before and 6 points of space after.
+A propagação de patógenos em escala global resulta do acoplamento entre dois regimes distintos de transmissão: a difusão local por proximidade física entre indivíduos dentro de um mesmo território e o transporte internacional de longa distância pela malha aérea~\cite{balcan2009,colizza2006}. Para capturar essa dinâmica de forma unificada, o sistema modela a população mundial como um único grafo multiescala, em que cada camada topológica corresponde a um desses regimes. Esta seção formaliza a estrutura matemática do grafo, os algoritmos de geração espacial e a arquitetura de software do simulador, ilustrada pelos diagramas UML.
 
-The abstract and ``resumo'' (if is the case) must be in 12 point Times font,
-indented 0.8cm on both sides. The word \textbf{Abstract} and \textbf{Resumo},
-should be written in boldface and must precede the text.
+\subsection{Grafo Global Unificado}
+
+O sistema adota um único grafo estático ponderado e não direcionado $G = (V, E)$, compartilhado pelo motor de simulação estocástica e pela visualização das séries epidemiológicas reais. A opção por um grafo não direcionado decorre da natureza bidirecional dos fluxos de transporte: as rotas aéreas $A \to B$ e $B \to A$ são consolidadas no par não ordenado $\{A, B\}$, e o contato físico humano não possui sentido preferencial. A assimetria na propagação é introduzida pelo estado epidemiológico dos vértices --- apenas um vértice infectado $v \in I$ pode contagiar um vizinho suscetível $u \in S$.
+
+\subsubsection{Alocação Iterativa de Vértices por População}
+
+O universo modelado compreende $M = 229$ entidades soberanas e territórios normalizados com base nos dados do \emph{Our World in Data}~\cite{owid_covid_2023}. O número total de vértices é fixado em $N_{\mathrm{total}} = 8.000$, orçamento que viabiliza simulações interativas a 40 quadros por segundo em hardware convencional.
+
+A distribuição da população mundial apresenta disparidades de até cinco ordens de grandeza, o que inviabiliza uma partição puramente linear: uma única nação concentraria quase toda a rede. Adota-se então uma lei de escala sublinear com expoente $\alpha = 0{,}5$, combinada a um piso mínimo de $n_{\min} = 12$ vértices por país:
+
+\begin{equation}
+n_i \propto (p_i)^{\alpha}, \quad \text{sujeito a} \quad \sum_{i=1}^{M} n_i = N_{\mathrm{total}} \quad \text{e} \quad n_i \geq n_{\min}
+\end{equation}
+
+Como a imposição direta do piso violaria a restrição de orçamento, foi desenvolvido um algoritmo iterativo de estabilização de cotas:
+\begin{enumerate}
+\item Calcula-se a cota proporcional de cada país livre com base em $(p_i)^{\alpha}$.
+\item Países cuja cota fica abaixo de $n_{\min}$ têm seus nós fixados em $n_{\min} = 12$ e são retirados do conjunto de redistribuição, descontando-se o montante correspondente do orçamento residual.
+\item O processo repete-se até que todos os países livres estejam acima do piso.
+\item As cotas contínuas finais são convertidas em inteiros pelo método do maior resto (algoritmo de Hamilton), garantindo $\sum_{i=1}^{M} n_i = N_{\mathrm{total}}$.
+\end{enumerate}
+
+No cenário regional do Ebola (2014--2016), as nações fora do foco são fixadas em $n_{\min} = 12$ e o orçamento excedente é redistribuído com maior resolução entre os três epicentros: Guiné, Libéria e Serra Leoa.
+
+\subsubsection{Rede Geométrica Aleatória e Grade Espacial 2D}
+
+As coordenadas geográficas de cada vértice são sorteadas uniformemente dentro do polígono territorial do seu país, obtido do dataset \emph{Natural Earth} (escala 50m). Os vértices internos são conectados pela topologia de um Grafo Geométrico Aleatório (\emph{Random Geometric Graph}): dois nós $u, v \in V_i$ recebem uma aresta bidirecional se a distância euclidiana entre eles não excede o raio adaptativo $r_i$.
+
+Um raio fixo global produziria anomalias severas: microestados formariam grafos quase completos enquanto países continentais fragmentariam em dezenas de componentes isolados. Para manter o grau médio $\bar{d} \in [6, 10]$ consistente em qualquer escala territorial, o raio é parametrizado pela densidade de vértices $\rho_i = n_i / \mathrm{Area}_i$:
+
+\begin{equation}
+r_i \approx \sqrt{\frac{\bar{d}_{\mathrm{ef}}}{\pi \cdot \rho_i}}, \qquad \bar{d}_{\mathrm{ef}} = \min(\bar{d},\, n_i - 1)
+\end{equation}
+
+A construção ingênua por verificação de todos os pares demandaria $O(n_i^2)$ operações por país. Para garantir inicialização instantânea, implementou-se uma \textbf{Grade Espacial 2D} (\emph{Spatial Grid Hashing}): o espaço delimitador do polígono é particionado em células quadradas de lado $r_i$; cada vértice é indexado em $O(1)$ à sua célula por truncamento de coordenadas; e a busca de vizinhos restringe-se à própria célula e às 8 adjacentes, reduzindo a construção para $O(n_i + E_i)$ no caso médio.
+
+\subsubsection{Arestas Internacionais, Ponderação e Distância Efetiva}
+
+A interconexão global entre países deriva das rotas de aviação comercial do dataset \emph{OpenFlights}. Para cada par $(i, j)$ com volume de rotas $\mathrm{routes}_{ij} > 0$:
+
+\begin{enumerate}
+\item \textbf{Multiplicidade de arestas:} sorteiam-se $k_{ij}$ arestas ligando nós aleatórios de $V_i$ a nós de $V_j$, com semente determinística:
+\begin{equation}
+k_{ij} = \min\!\left(k_{\max},\;\left\lceil \frac{\mathrm{routes}_{ij}}{\mathrm{escala}} \right\rceil \right), \quad k_{\max} = 10,\;\mathrm{escala} = 2
+\end{equation}
+
+\item \textbf{Peso logarítmico e probabilidade de transmissão:} para evitar que volumes extremos dominem a rede, o número de rotas é comprimido:
+\begin{equation}
+w_{ij} = \frac{\ln(1 + \mathrm{routes}_{ij})}{\ln(1 + \max_{(u,v)} \mathrm{routes}_{uv})}, \qquad p_{ij} = 1 - \exp(-\beta \cdot w_{ij})
+\end{equation}
+onde $\beta$ é a transmissibilidade básica calibrada antes do início da simulação.
+
+\item \textbf{Distância Efetiva para o Dijkstra~\cite{brockmann2013}:} a probabilidade de contágio é transformada em custo estritamente positivo e aditivo:
+\begin{equation}
+c_{ij} = -\ln\!\bigl(\min(p_{ij},\, 0{,}999)\bigr)
+\end{equation}
+Somando custos ao longo de um caminho equivale a multiplicar as probabilidades de contágio, de modo que o menor custo minimiza a rota de maior resistência epidemiológica.
+\end{enumerate}
+
+A Figura~\ref{fig:grafo_multiescala} sintetiza os dois regimes de acoplamento descritos acima.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/esquema_grafo_multiescala.png}
+\caption{Grafo Multiescala: vértices agrupados nos polígonos dos países (rede geométrica interna) conectados por rotas aéreas ponderadas (aresta internacional).}
+\label{fig:grafo_multiescala}
+\end{figure}
+
+\subsection{Arquitetura de Software e Diagrama de Componentes}
+
+A arquitetura segue o princípio de dependência unidirecional em quatro camadas concêntricas, conforme o Diagrama de Componentes da Figura~\ref{fig:componentes}.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/uml_componentes.png}
+\caption{Diagrama de Componentes: quatro camadas com dependência estritamente unidirecional.}
+\label{fig:componentes}
+\end{figure}
+
+\begin{itemize}
+\item \textbf{\texttt{ui}}: renderização do mapa em lote via \texttt{QPainter}, curvas SEIRD com \texttt{pyqtgraph} e controles do \emph{player}. Não contém regras de negócio.
+\item \textbf{\texttt{app}}: orquestra o ciclo de vida das sessões (\texttt{Simu\-lationSession}, \texttt{RealSession}), o controle de reprodução (\texttt{PlaybackController}) e a comparação de curvas.
+\item \textbf{\texttt{world} / \texttt{datasets}}: constrói o grafo a partir dos dados pré-processados em \texttt{data/processed/}, aplicando a alocação de vértices e a grade espacial via padrão \emph{Builder}.
+\item \textbf{\texttt{core}}: núcleo puro sem qualquer dependência de Qt ou bibliotecas externas de grafos, subdividido em \texttt{core/graph/} (estrutura e travessias), \texttt{core/analysis/} (métricas), \texttt{core/epidemic/} (dinâmica SEIRD) e \texttt{core/timeline/} (protocolo de linha do tempo).
+\end{itemize}
+
+Duas decisões arquiteturais fundam esse desenho: (i)~o núcleo \texttt{core} é 100\% independente de Qt, o que permite testes automatizados em integração contínua sem servidor gráfico; e (ii)~NetworkX e igraph são proibidos no código de produção --- todas as estruturas e travessias operam sobre listas de adjacência nativas indexadas por inteiros contíguos.
+
+\subsection{Diagrama de Classes e Protocolo de Linha do Tempo}
+
+O desafio central de engenharia foi permitir que a interface gráfica reproduza, sob o mesmo controle de reprodução, tanto simulações estocásticas quanto séries históricas. A solução é o protocolo estrutural \texttt{Timeline} (\emph{structural subtyping}), ilustrado no Diagrama de Classes da Figura~\ref{fig:classes}.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.98\textwidth]{figures/uml_classes.png}
+\caption{Diagrama de Classes: protocolo \texttt{Timeline} unifica simulação e dados históricos sob o mesmo \emph{player}.}
+\label{fig:classes}
+\end{figure}
+
+O protocolo define três operações imutáveis: \texttt{dias\_disponiveis()}, \texttt{obter\_estados\_vertices(dia)} e \texttt{obter\_estatisticas\_pais(dia, iso3)}. Duas classes o implementam de forma independente:
+
+\begin{itemize}
+\item \textbf{\texttt{SimulationTimeline}}: lê os \emph{snapshots} compactos gravados pelo \texttt{StateBuffer}. A cada passo diário, o \texttt{EpidemicEngine} serializa o estado de cada vértice em 1 byte (estado SEIRD + \emph{flags} de isolamento e vacinação), permitindo armazenar centenas de dias de simulação em poucos megabytes.
+\item \textbf{\texttt{RealTimeline}}: traduz as séries tabulares de casos e óbitos de \texttt{PandemicSeries} para o mesmo formato, sem qualquer alteração na camada de apresentação.
+\end{itemize}
+
+O ciclo de vida é centralizado em \texttt{SimulationSession}: ela inicializa o \texttt{SimulationConfig} imutável, dispara a calibração de $\beta$ por bisseção e delega o avanço diário ao \texttt{EpidemicEngine}. As intervenções sanitárias (isolamento e vacinação) utilizam uma \textbf{máscara de bits por nó}: em vez de remover e reinserir arestas (operação $O(E)$ que invalidaria caches de análise), um único bit é ativado em $O(1)$; o motor e as travessias ignoram arestas incidentes a nós mascarados, preservando a topologia física original.
+
+\subsection{Diagramas de Casos de Uso}
+
+A especificação comportamental do sistema abrange 21 casos de uso, organizados em dois fluxos independentes.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.88\textwidth]{figures/uc_simulacao.png}
+\caption{Casos de Uso do Fluxo de Simulação (UC01--UC14).}
+\label{fig:uc_sim}
+\end{figure}
+
+No \textbf{Fluxo de Simulação} (Figura~\ref{fig:uc_sim}, UC01--UC14), o usuário parametriza o cenário antes do início. A configuração inclui obrigatoriamente a seleção do Paciente Zero (UC04), cujo sorteio usa sementes derivadas via SHA-256 (\texttt{core/seeds.py}) para reprodutibilidade estrita. A calibração de $\beta$ (UC03) estende opcionalmente a configuração. Uma vez iniciada a simulação (UC07), os parâmetros ficam travados, e o usuário controla apenas o \emph{player} temporal (UC08), o mapa em duas camadas (UC09) e a análise topológica assíncrona em segundo plano (UC14).
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.80\textwidth]{figures/uc_pandemias_reais.png}
+\caption{Casos de Uso do Fluxo de Pandemias Reais (UC15--UC21).}
+\label{fig:uc_real}
+\end{figure}
+
+No \textbf{Fluxo de Pandemias Reais} (Figura~\ref{fig:uc_real}, UC15--UC21), o usuário seleciona um dos quatro surtos históricos curados: COVID-19, Ebola, H1N1 ou SARS. O sistema exibe a incidência por 100 mil habitantes no mapa (UC17) e permite inspecionar acumulados de um país específico (UC19). Havendo uma simulação completa em memória, o caso de uso UC20 habilita a comparação quantitativa entre as curvas: o alinhamento pelo Dia~0 e o cálculo do Erro Quadrático Médio (EQM) entre a trajetória simulada e a série epidemiológica real.
 
 \section{Estruturas de Dados e Algoritmos de Grafos} \label{sec:algoritmos}
 
