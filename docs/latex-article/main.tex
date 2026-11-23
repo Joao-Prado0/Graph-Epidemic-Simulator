@@ -105,47 +105,24 @@ Para o algoritmo de Dijkstra, $p_{ij}$ é convertida na \textbf{Distância Efeti
 
 \subsection{Arquitetura em Camadas e Diagrama de Classes}
 
-A arquitetura adota dependência unidirecional estrita em quatro camadas (\texttt{ui} $\to$ \texttt{app} $\to$ \texttt{world/datasets} $\to$ \texttt{core}), conforme ilustrado na Figura~\ref{fig:componentes}. A camada \texttt{ui} (PySide6/\texttt{QPainter}) não contém regras de negócio; \texttt{app} orquestra sessões e reprodução; \texttt{world/datasets} constrói o grafo via padrão \emph{Builder}; e \texttt{core} é o núcleo algorítmico puro — 100\% independente de Qt e de bibliotecas externas de grafos — subdividido em \texttt{graph/}, \texttt{analysis/}, \texttt{epidemic/} e \texttt{timeline/}.
+A arquitetura de software organiza-se sob dependência unidirecional estrita em quatro camadas (\texttt{ui} $\to$ \texttt{app} $\to$ \texttt{world/datasets} $\to$ \texttt{core}), conforme detalhado no Diagrama de Componentes (Figura~\ref{fig:componentes}, disponível no Apêndice~\ref{sec:apendice_diagramas}). A camada \texttt{ui} (PySide6/\texttt{QPainter}) abriga a interface gráfica sem regras de negócio; \texttt{app} gerencia sessões e reprodução; \texttt{world/datasets} constrói o grafo via padrão \emph{Builder}; e \texttt{core} constitui o núcleo algorítmico puro — 100\% independente de Qt e de bibliotecas externas de grafos — subdividido em \texttt{graph/}, \texttt{analysis/}, \texttt{epidemic/} e \texttt{timeline/}.
 
-Para unificar simulação estocástica e séries históricas sob o mesmo \emph{player}, desenvolveu-se o protocolo estrutural \texttt{Timeline} (\emph{structural subtyping}), apresentado na Figura~\ref{fig:classes}: \texttt{SimulationTimeline} consome \emph{snapshots} compactos do \texttt{StateBuffer} (1 byte por nó, codificando estado SEIRD e \emph{flags} de intervenção), enquanto \texttt{RealTimeline} traduz séries tabulares de \texttt{PandemicSeries}. O ciclo de vida é centralizado em \texttt{SimulationSession}, e as medidas sanitárias utilizam \textbf{máscaras de bits por nó} em $O(1)$ sem alterar a topologia do grafo.
-
-\begin{figure}[!ht]
-\centering
-\begin{minipage}[t]{0.48\textwidth}
-  \centering
-  \includegraphics[width=\textwidth]{figures/uml_componentes.png}
-  \caption{Diagrama de Componentes: arquitetura em quatro camadas.}
-  \label{fig:componentes}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.48\textwidth}
-  \centering
-  \includegraphics[width=\textwidth]{figures/uml_classes.png}
-  \caption{Diagrama de Classes: protocolo estrutural \texttt{Timeline}.}
-  \label{fig:classes}
-\end{minipage}
-\end{figure}
-
-\subsection{Diagramas de Casos de Uso}
-
-A especificação abrange 21 casos de uso em dois fluxos (Figuras~\ref{fig:uc_sim} e~\ref{fig:uc_real}). No \textbf{Fluxo de Simulação} (UC01--UC14), os parâmetros ficam travados após UC07; o Paciente Zero (UC04) usa sementes SHA-256 para reprodutibilidade; a calibração de $\beta$ (UC03) é opcional. No \textbf{Fluxo de Pandemias Reais} (UC15--UC21), o usuário seleciona COVID-19, Ebola, H1N1 ou SARS; UC20 compara a simulação com dados históricos via EQM alinhado pelo Dia~0.
+O desafio central de engenharia consistiu em permitir que a mesma interface reproduzisse simulações estocásticas e séries epidemiológicas reais. A solução adotada é o protocolo estrutural \texttt{Timeline} (\emph{structural subtyping}), evidenciado no Diagrama de Classes da Figura~\ref{fig:classes}. A classe \texttt{SimulationTimeline} lê \emph{snapshots} compactos gravados em memória pelo \texttt{StateBuffer} (1 byte por nó, codificando estado SEIRD e \emph{flags} de intervenção), enquanto \texttt{RealTimeline} traduz séries históricas de \texttt{PandemicSeries}. O controlador \texttt{PlaybackController} opera sobre ambas as fontes de forma transparente. A coordenação do ciclo de vida fica a cargo da \texttt{SimulationSession}, enquanto as intervenções sanitárias (quarentena e imunização) empregam \textbf{máscaras de bits por nó} em $O(1)$, preservando a topologia física da rede.
 
 \begin{figure}[!ht]
 \centering
-\begin{minipage}[t]{0.52\textwidth}
-  \centering
-  \includegraphics[width=\textwidth]{figures/uc_simulacao.png}
-  \caption{Casos de Uso: Fluxo de Simulação (UC01--UC14).}
-  \label{fig:uc_sim}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.44\textwidth}
-  \centering
-  \includegraphics[width=\textwidth]{figures/uc_pandemias_reais.png}
-  \caption{Casos de Uso: Fluxo de Pandemias Reais (UC15--UC21).}
-  \label{fig:uc_real}
-\end{minipage}
+\includegraphics[width=0.92\textwidth]{figures/uml_classes.png}
+\caption{Diagrama de Classes: arquitetura orientada a objetos unificada pelo protocolo estrutural \texttt{Timeline}.}
+\label{fig:classes}
 \end{figure}
+
+\subsection{Engenharia de Requisitos e Casos de Uso}
+
+A especificação comportamental da ferramenta abrange 21 casos de uso divididos em dois fluxos operacionais, cujos diagramas completos encontram-se documentados no Apêndice~\ref{sec:apendice_diagramas} (Figura~\ref{fig:uc_sim} e Figura~\ref{fig:uc_real}):
+\begin{itemize}
+    \item \textbf{Fluxo de Simulação (UC01 a UC14):} O usuário parametriza o cenário antes do início, com sementes SHA-256 para reprodutibilidade estrita (UC04) e calibração opcional de $\beta$ por bisseção (UC03). Após a partida (UC07), os parâmetros são bloqueados, permitindo apenas controle temporal no \emph{player} (UC08), visualização cartográfica (UC09) e análise de rede assíncrona (UC14).
+    \item \textbf{Fluxo de Pandemias Reais (UC15 a UC21):} Permite explorar séries históricas de COVID-19, Ebola, H1N1 e SARS (UC16) com mapas de incidência por 100 mil habitantes (UC17) e inspeção por país (UC19). Havendo uma simulação prévia em memória, o sistema executa a comparação empírica quantitativa (UC20), computando o Erro Quadrático Médio (EQM) alinhado pelo Dia~0.
+\end{itemize}
 
 \section{Estruturas de Dados e Algoritmos de Grafos} \label{sec:algoritmos}
 
@@ -483,7 +460,40 @@ A adoção de vetores densos e listas nativas indexadas, associada a máscaras b
 \newpage
 \appendix
 
-\section{Apêndice: Wireframes e Catálogo de Telas da Ferramenta}
+\section{Apêndice A: Diagramas Arquiteturais e de Casos de Uso}
+\label{sec:apendice_diagramas}
+
+Este apêndice documenta em escala ampliada os diagramas de engenharia de software da modelagem conceitual (Seção~\ref{sec:modelagem}), garantindo plena legibilidade de todos os componentes, interfaces e fluxos de interação.
+
+\subsection{Diagrama de Componentes do Sistema}
+Apresenta o detalhamento das quatro camadas arquiteturais concêntricas (\texttt{ui}, \texttt{app}, \texttt{world/datasets} e \texttt{core}), suas interfaces e regras de dependência estrita em sentido único.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/uml_componentes.png}
+\caption{Diagrama de Componentes: arquitetura em quatro camadas concêntricas com dependência unidirecional.}
+\label{fig:componentes}
+\end{figure}
+
+\subsection{Diagramas de Casos de Uso da Aplicação}
+Documenta formalmente os atores, extensões (\texttt{<<extend>>}) e inclusões (\texttt{<<include>>}) para os fluxos de simulação computacional e de reprodução de pandemias históricas.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{figures/uc_simulacao.png}
+\caption{Diagrama de Casos de Uso: Fluxo de Simulação Estocástica (UC01 a UC14).}
+\label{fig:uc_sim}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{figures/uc_pandemias_reais.png}
+\caption{Diagrama de Casos de Uso: Fluxo de Pandemias Reais e Comparação Empírica (UC15 a UC21).}
+\label{fig:uc_real}
+\end{figure}
+
+\newpage
+\section{Apêndice B: Wireframes e Catálogo de Telas da Ferramenta}
 \label{sec:apendice_wireframes}
 
 Este apêndice reúne o catálogo de wireframes e especificações visuais elaborados durante o planejamento da interface com o usuário (Módulo~5). A inclusão destas telas em formato de apêndice permite documentar todo o processo de design e validação das interações do usuário, mantendo o corpo principal do artigo dentro do limite regulamentar de 12 a 15 páginas estipulado pela disciplina.
