@@ -343,20 +343,6 @@ A interface é uma janela única em PySide6, com duas abas: \emph{Simulação}, 
 \item \textbf{Mapa.} Os polígonos dos países são pintados pelo estado dominante do dia, na simulação, ou pela incidência por 100 mil habitantes, nos dados reais. Os vértices aparecem apenas em países com pelo menos 40~px de largura na tela e somem abaixo de 36~px, para limitar o custo de desenho.
 \end{itemize}
 
-\begin{figure}[!ht]
-\centering
-\includegraphics[width=0.48\textwidth]{figures/wfr_configuracao.png}
-\caption{Wireframe de projeto: tela de configuração do cenário.}
-\label{fig:tela_config}
-\end{figure}
-
-\begin{figure}[!ht]
-\centering
-\includegraphics[width=0.48\textwidth]{figures/wfr_simulacao_mapa.png}
-\caption{Wireframe de projeto: mapa e player durante a simulação.}
-\label{fig:tela_mapa}
-\end{figure}
-
 \subsection{Fluxo de uso}
 
 A tela inicial apresenta os dois fluxos disponíveis, \emph{Simulação} e \emph{Pandemias reais}, e permite carregar uma configuração salva em JSON. No fluxo de simulação, a aba \emph{Simulação} reúne três blocos: parâmetros da doença, intervenção e cenário/execução. A partir deles, o usuário calibra $\beta$, salva ou carrega a configuração e inicia a execução. Ao iniciar, os campos ficam travados para preservar a reprodutibilidade, e o controle passa a ser apenas da reprodução. No fluxo de pandemias reais, o usuário escolhe um dos surtos embutidos e reproduz a série histórica no mesmo mapa e com o mesmo player.
@@ -493,14 +479,14 @@ Apresenta as telas de parametrização da doença, calibração iterativa de $\b
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\textwidth]{figures/wf_tela02_config.png}
+\includegraphics[width=0.85\textwidth]{figures/wfr_configuracao.png}
 \caption{Wireframe da Tela 2: Painel de parametrização epidemiológica ($R_0$, $\gamma$, letalidade e níveis de intervenção).}
 \label{fig:wf_tela2}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\textwidth]{figures/wf_tela05_simulacao.png}
+\includegraphics[width=0.85\textwidth]{figures/wfr_tela_simulacao.png}
 \caption{Wireframe da Tela 5: Visualizador cartográfico global com reprodução temporal e estados SEIRD por país.}
 \label{fig:wf_tela5}
 \end{figure}
@@ -510,16 +496,9 @@ Reúne as telas de inspeção dos algoritmos desenvolvidos pelo grupo: component
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\textwidth]{figures/wf_tela10_dijkstra.png}
+\includegraphics[width=0.85\textwidth]{figures/Telas de caminho minimo.png}
 \caption{Wireframe da Tela 10 (Caminho Mínimo): Consulta de rotas de transmissão e probabilidade conjunta via Dijkstra.}
 \label{fig:wf_tela10_dijkstra}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{figures/wf_tela10_tarjan.png}
-\caption{Wireframe da Tela 10 (Vulnerabilidade): Detecção em passo único DFS de arestas de corte e vértices de articulação (Tarjan).}
-\label{fig:wf_tela10_tarjan}
 \end{figure}
 
 \subsection{Fluxo de Dados Reais e Comparação Empírica (M4)}
@@ -527,14 +506,14 @@ Documenta a navegação pelos datasets históricos reais (COVID-19, SARS, Ebola 
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\textwidth]{figures/wf_tela09_pandemias.png}
+\includegraphics[width=0.85\textwidth]{figures/wfr_telas_pandemias_reais.png}
 \caption{Wireframe da Tela 9: Reprodução histórica com séries temporais oficiais e mapa coroplético de casos.}
 \label{fig:wf_tela9}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\textwidth]{figures/wf_tela11_comparacao.png}
+\includegraphics[width=0.85\textwidth]{figures/wfr_comparacao.png}
 \caption{Wireframe da Tela 11: Módulo de validação estatística e confronto entre séries sintéticas e observadas.}
 \label{fig:wf_tela11}
 \end{figure}
@@ -544,7 +523,7 @@ Inclui o visualizador de inspeção de vértice individual no mapa (país, grau 
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\textwidth]{figures/wf_tela14_inspecao.png}
+\includegraphics[width=0.85\textwidth]{figures/wfr_inspeçao_vertice.png}
 \caption{Wireframe da Tela 14: Inspeção pontual de vértice por clique no mapa interativo.}
 \label{fig:wf_tela14}
 \end{figure}
