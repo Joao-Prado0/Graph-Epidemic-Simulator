@@ -105,148 +105,87 @@ Para o algoritmo de Dijkstra, $p_{ij}$ é convertida na \textbf{Distância Efeti
 
 \subsection{Arquitetura em Camadas e Diagrama de Classes}
 
-A arquitetura adota dependência unidirecional estrita em quatro camadas (\texttt{ui} $\to$ \texttt{app} $\to$ \texttt{world/datasets} $\to$ \texttt{core}), conforme ilustrado na Figura~\ref{fig:componentes}. A camada \texttt{ui} (PySide6/\texttt{QPainter}) não contém regras de negócio; \texttt{app} orquestra sessões e reprodução; \texttt{world/datasets} constrói o grafo via padrão \emph{Builder}; e \texttt{core} é o núcleo algorítmico puro — 100\% independente de Qt e de bibliotecas externas de grafos — subdividido em \texttt{graph/}, \texttt{analysis/}, \texttt{epidemic/} e \texttt{timeline/}.
+A arquitetura de software organiza-se sob dependência unidirecional estrita em quatro camadas (\texttt{ui} $\to$ \texttt{app} $\to$ \texttt{world/datasets} $\to$ \texttt{core}), conforme detalhado no Diagrama de Componentes (Figura~\ref{fig:componentes}, disponível no Apêndice~\ref{sec:apendice_diagramas}). A camada \texttt{ui} (PySide6/\texttt{QPainter}) abriga a interface gráfica sem regras de negócio; \texttt{app} gerencia sessões e reprodução; \texttt{world/datasets} constrói o grafo via padrão \emph{Builder}; e \texttt{core} constitui o núcleo algorítmico puro — 100\% independente de Qt e de bibliotecas externas de grafos — subdividido em \texttt{graph/}, \texttt{analysis/}, \texttt{epidemic/} e \texttt{timeline/}.
 
-Para unificar simulação estocástica e séries históricas sob o mesmo \emph{player}, desenvolveu-se o protocolo estrutural \texttt{Timeline} (\emph{structural subtyping}), apresentado na Figura~\ref{fig:classes}: \texttt{SimulationTimeline} consome \emph{snapshots} compactos do \texttt{StateBuffer} (1 byte por nó, codificando estado SEIRD e \emph{flags} de intervenção), enquanto \texttt{RealTimeline} traduz séries tabulares de \texttt{PandemicSeries}. O ciclo de vida é centralizado em \texttt{SimulationSession}, e as medidas sanitárias utilizam \textbf{máscaras de bits por nó} em $O(1)$ sem alterar a topologia do grafo.
-
-\begin{figure}[!ht]
-\centering
-\begin{minipage}[t]{0.48\textwidth}
-  \centering
-  \includegraphics[width=\textwidth]{figures/uml_componentes.png}
-  \caption{Diagrama de Componentes: arquitetura em quatro camadas.}
-  \label{fig:componentes}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.48\textwidth}
-  \centering
-  \includegraphics[width=\textwidth]{figures/uml_classes.png}
-  \caption{Diagrama de Classes: protocolo estrutural \texttt{Timeline}.}
-  \label{fig:classes}
-\end{minipage}
-\end{figure}
-
-\subsection{Diagramas de Casos de Uso}
-
-A especificação abrange 21 casos de uso em dois fluxos (Figuras~\ref{fig:uc_sim} e~\ref{fig:uc_real}). No \textbf{Fluxo de Simulação} (UC01--UC14), os parâmetros ficam travados após UC07; o Paciente Zero (UC04) usa sementes SHA-256 para reprodutibilidade; a calibração de $\beta$ (UC03) é opcional. No \textbf{Fluxo de Pandemias Reais} (UC15--UC21), o usuário seleciona COVID-19, Ebola, H1N1 ou SARS; UC20 compara a simulação com dados históricos via EQM alinhado pelo Dia~0.
+O desafio central de engenharia consistiu em permitir que a mesma interface reproduzisse simulações estocásticas e séries epidemiológicas reais. A solução adotada é o protocolo estrutural \texttt{Timeline} (\emph{structural subtyping}), evidenciado no Diagrama de Classes da Figura~\ref{fig:classes}. A classe \texttt{SimulationTimeline} lê \emph{snapshots} compactos gravados em memória pelo \texttt{StateBuffer} (1 byte por nó, codificando estado SEIRD e \emph{flags} de intervenção), enquanto \texttt{RealTimeline} traduz séries históricas de \texttt{PandemicSeries}. O controlador \texttt{PlaybackController} opera sobre ambas as fontes de forma transparente. A coordenação do ciclo de vida fica a cargo da \texttt{SimulationSession}, enquanto as intervenções sanitárias (quarentena e imunização) empregam \textbf{máscaras de bits por nó} em $O(1)$, preservando a topologia física da rede.
 
 \begin{figure}[!ht]
 \centering
-\begin{minipage}[t]{0.52\textwidth}
-  \centering
-  \includegraphics[width=\textwidth]{figures/uc_simulacao.png}
-  \caption{Casos de Uso: Fluxo de Simulação (UC01--UC14).}
-  \label{fig:uc_sim}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.44\textwidth}
-  \centering
-  \includegraphics[width=\textwidth]{figures/uc_pandemias_reais.png}
-  \caption{Casos de Uso: Fluxo de Pandemias Reais (UC15--UC21).}
-  \label{fig:uc_real}
-\end{minipage}
+\includegraphics[width=0.92\textwidth]{figures/uml_classes.png}
+\caption{Diagrama de Classes: arquitetura orientada a objetos unificada pelo protocolo estrutural \texttt{Timeline}.}
+\label{fig:classes}
 \end{figure}
+
+\subsection{Engenharia de Requisitos e Casos de Uso}
+
+A especificação comportamental da ferramenta abrange 21 casos de uso divididos em dois fluxos operacionais, cujos diagramas completos encontram-se documentados no Apêndice~\ref{sec:apendice_diagramas} (Figura~\ref{fig:uc_sim} e Figura~\ref{fig:uc_real}):
+\begin{itemize}
+    \item \textbf{Fluxo de Simulação (UC01 a UC14):} O usuário parametriza o cenário antes do início, com sementes SHA-256 para reprodutibilidade estrita (UC04) e calibração opcional de $\beta$ por bisseção (UC03). Após a partida (UC07), os parâmetros são bloqueados, permitindo apenas controle temporal no \emph{player} (UC08), visualização cartográfica (UC09) e análise de rede assíncrona (UC14).
+    \item \textbf{Fluxo de Pandemias Reais (UC15 a UC21):} Permite explorar séries históricas de COVID-19, Ebola, H1N1 e SARS (UC16) com mapas de incidência por 100 mil habitantes (UC17) e inspeção por país (UC19). Havendo uma simulação prévia em memória, o sistema executa a comparação empírica quantitativa (UC20), computando o Erro Quadrático Médio (EQM) alinhado pelo Dia~0.
+\end{itemize}
 
 \section{Estruturas de Dados e Algoritmos de Grafos} \label{sec:algoritmos}
 
-Em conformidade com as diretrizes do trabalho e a restrição de não utilização de bibliotecas prontas de grafos (como \emph{NetworkX} ou \emph{igraph}) no código de produção, toda a infraestrutura computacional de representação, travessia e análise topológica foi integralmente projetada e implementada pela equipe. O desenho prioriza estruturas de dados contíguas e indexação inteira direta ($0 \dots V-1$), garantindo eficiência assintótica e mínimo consumo de memória em grafos com milhares de vértices.
+Em estrito cumprimento aos requisitos do projeto, nenhuma biblioteca pronta de redes (como \emph{NetworkX} ou \emph{igraph}) é utilizada no código de produção do simulador. Toda a modelagem estrutural, travessias e algoritmos analíticos foram projetados e implementados de raiz pela equipe, priorizando eficiência assintótica e representações contíguas em memória sobre identificadores inteiros $0 \dots V-1$.
 
 \subsection{Representação em Memória e Máscara Dinâmica de Arestas}
 
-O grafo global é encapsulado na classe \texttt{Graph} (\texttt{core/graph/graph.py}), modelado como um grafo não direcionado e ponderado $G = (V, E)$. Internamente, a representação combina lista de adjacência indexada e vetores densos:
-
+O grafo unificado é encapsulado na classe \texttt{Graph} (\texttt{core/graph/graph.py}) como uma estrutura não direcionada e ponderada $G = (V, E)$, combinando adjacência indexada e vetores densos:
 \begin{itemize}
-  \item \textbf{Adjacência indexada:} para cada vértice $u \in \{0, \dots, V-1\}$, a estrutura \texttt{\_adj[u]} consiste em um dicionário que mapeia cada vizinho $v$ ao índice único da aresta correspondente $e \in \{0, \dots, E-1\}$. Esse arranjo híbrido permite iterar sobre vizinhos em tempo proporcional ao grau $O(k_u)$ e verificar adjacência direta $u \sim v$ em tempo médio $O(1)$.
-  \item \textbf{Vetores densos de atributos:} pesos brutos $w_e$ e custos de distância efetiva $c_e$ são mantidos em listas contíguas (\texttt{\_weights} e \texttt{\_costs}), eliminando redundância direcional e maximizando a localidade de referência espacial.
-  \item \textbf{Máscaras dinâmicas de estados (\emph{Bitmasks}):} para reproduzir o isolamento sanitário de infectados (quarentena, UC05) sem mutações topológicas de alto custo, empregam-se vetores de \texttt{bytearray} (\texttt{\_vertex\_isolated} e \texttt{\_edge\_active}). O isolamento ocorre em tempo estritamente constante $O(1)$ por atribuição binária:
-  \begin{equation}
-  \mathrm{isolado}[u] \gets 1 \implies \forall v \in N(u), \quad (u, v) \text{ é ignorado na travessia ativa}.
-  \end{equation}
+  \item \textbf{Adjacência indexada:} para cada vértice $u \in \{0, \dots, V-1\}$, \texttt{\_adj[u]} é um dicionário nativo que mapeia cada vizinho $v$ ao índice único da aresta $e \in \{0, \dots, E-1\}$. Esse arranjo permite iterar sobre a vizinhança em $O(k_u)$ e testar adjacência direta $u \sim v$ em tempo médio $O(1)$.
+  \item \textbf{Vetores de propriedades contíguos:} pesos brutos $w_e$ e custos de distância efetiva $c_e$ residem em listas densas (\texttt{\_weights} e \texttt{\_costs}), eliminando duplicação de dados entre direções e maximizando a localidade espacial de cache.
+  \item \textbf{Máscaras dinâmicas de estados (\emph{Bitmasks}):} para simular o isolamento sanitário de infectados (quarentena, UC05) sem mutações topológicas de alto custo, utilizam-se vetores de \texttt{bytearray} (\texttt{\_vertex\_isolated} e \texttt{\_edge\_active}). O isolamento ocorre em tempo estritamente constante $O(1)$ por marcação binária ($\mathrm{isolado}[u] \gets 1$), sendo consultada pelos iteradores de vizinhança em tempo real sem remoção física de arestas, mantendo o consumo de memória em $O(V + E)$.
 \end{itemize}
-
-Os iteradores de vizinhança (\texttt{neighbors(u, only\_active=True)}) consultam as máscaras em tempo real, evitando a remoção e reinserção física de arestas e preservando o espaço rigorosamente em $O(V + E)$.
 
 \subsection{Travessias Fundamentais e Conectividade}
 
-O módulo \texttt{core/graph/traversal.py} fornece os algoritmos clássicos de exploração de redes:
-
-\subsubsection{Busca em Largura (BFS) e Raios de Contágio}
-A BFS computa distâncias geodésicas (número de saltos) a partir de uma origem $s$, empregando fila FIFO (\texttt{collections.deque}) e vetor de distâncias com sentinela $-1$. Sob a hipótese de transmissão homogênea por contato, o algoritmo determina o avanço em ondas de choque da doença e o raio de contágio em tempo $O(V + E)$ e espaço auxiliar $O(V)$.
-
-\subsubsection{Busca em Profundidade (DFS) Iterativa}
-A exploração profunda de caminhos previne estouro de pilha de recursão (\texttt{RecursionError}) em grafos com $V = 8.000$ mediante implementação puramente iterativa com pilha explícita (\texttt{stack}) contendo tuplas do vértice corrente e o iterador de adjacência. Opera em tempo $O(V + E)$ e espaço $O(V)$, rastreando cadeias lineares de dispersão.
-
-\subsubsection{Decomposição em Componentes Conexas}
-Obtida via BFS sucessivas a partir de nós não visitados em tempo $O(V + E)$. Na fase de pré-voo, identifica a componente gigante global (assegurando difusão transnacional) e mapeia microestados ou ilhas sem conexões aéreas comerciais (ex.: Andorra e San Marino), prevenindo bloqueios ou laços na simulação.
+O módulo \texttt{core/graph/traversal.py} fornece as rotinas fundamentais de exploração em tempo linear $O(V + E)$ e espaço $O(V)$:
+\begin{itemize}
+  \item \textbf{Busca em Largura (BFS):} utiliza fila FIFO (\texttt{collections.deque}) para computar distâncias geodésicas (número de saltos) a partir da origem, determinando raios de propagação e frentes de onda de contágio.
+  \item \textbf{Busca em Profundidade (DFS) Iterativa:} emprega pilha explícita (\texttt{stack}) contendo tuplas do vértice corrente e seu iterador de adjacência. A formulação puramente iterativa impede o estouro de pilha de recursão (\texttt{RecursionError}) do interpretador Python para grafos de grande escala ($V = 8.000$).
+  \item \textbf{Decomposição em Componentes Conexas:} obtida por sucessivas varreduras BFS. Identifica a componente gigante global (essencial para a dispersão transnacional) e mapeia microestados ou territórios sem malha aérea comercial (ex.: Andorra e San Marino), prevenindo bloqueios ou laços na simulação.
+\end{itemize}
 
 \subsection{Caminho Mínimo e Distância Efetiva Epidemiológica}
 
-A modelagem de rotas críticas de dispersão utiliza o Algoritmo de Dijkstra (\texttt{core/graph/shortest\_path.py}) com fila de prioridades baseada em \emph{min-heap} binário (\texttt{heapq}) em $O((V + E) \log V)$.
+A identificação das rotas de maior vulnerabilidade utiliza o Algoritmo de Dijkstra com \emph{min-heap} binário (\texttt{heapq}) em tempo $O((V + E) \log V)$ (\texttt{core/graph/shortest\_path.py}).
 
-Conforme a teoria da geometria oculta de contágio de Brockmann e Helbing~\cite{brockmann2013}, a probabilidade de contágio $p_{uv} = 1 - \exp(-\beta w_{uv}) \in (0, 1)$ associada à aresta $(u, v)$ é convertida no custo aditivo de distância efetiva:
-\begin{equation}
-c_{uv} = -\ln(p_{uv}) > 0.
-\end{equation}
-
-A positividade estrita de $c_{uv}$ atende à premissa do algoritmo de Dijkstra. A propriedade central reside na equivalência entre a minimização da soma de distâncias efetivas ao longo de uma trajetória $P = (v_0, \dots, v_k)$ e a maximização da probabilidade conjunta independente de transmissão $\Pr(P)$:
+Fundamentando-se na geometria oculta de contágio de Brockmann e Helbing~\cite{brockmann2013}, a probabilidade diária de transmissão $p_{uv} = 1 - \exp(-\beta w_{uv}) \in (0, 1)$ é convertida no custo aditivo estritamente positivo $c_{uv} = -\ln(p_{uv}) > 0$. Dessa forma, minimizar a soma dos custos de uma trajetória equivale formalmente a maximizar a probabilidade conjunta independente de contágio $\Pr(P)$:
 \begin{equation}
 \min \sum_{i=0}^{k-1} c_{v_i, v_{i+1}} = \min \left[ -\sum_{i=0}^{k-1} \ln(p_{v_i, v_{i+1}}) \right] \iff \max \prod_{i=0}^{k-1} p_{v_i, v_{i+1}} = \max \Pr(P).
 \end{equation}
-
-O relaxamento padrão com vetores $\mathrm{dist}$ e $\mathrm{parent}$ viabiliza reconstruir o trajeto aéreo mais vulnerável que conecta um foco epidêmico remoto a qualquer centro urbano receptor.
+O relaxamento com vetores de distâncias e predecessores permite reconstruir com precisão a rota aérea mais provável entre focos epidêmicos remotos e centros urbanos receptores.
 
 \subsection{Vulnerabilidade Estrutural: Pontes e Articulações de Tarjan}
 
-A detecção de gargalos críticos de transporte baseia-se no algoritmo de Tarjan~\cite{tarjan1972} (\texttt{core/analysis/bridges.py}), que localiza conjuntamente \textbf{pontes} (\emph{bridges}) e \textbf{pontos de articulação} (\emph{cut vertices}) em uma única varredura linear $O(V + E)$.
+A detecção de gargalos críticos de transporte baseia-se no algoritmo clássico de Tarjan~\cite{tarjan1972} (\texttt{core/analysis/bridges.py}), que localiza conjuntamente \textbf{pontes} (\emph{bridges}) e \textbf{pontos de articulação} (\emph{cut vertices}) em uma única travessia DFS em tempo $O(V + E)$ e espaço $O(V)$.
 
-O algoritmo mantém os marcadores inteiros $\mathrm{tin}[u]$ (tempo de descoberta) e $\mathrm{low}[u]$ (menor $\mathrm{tin}$ alcançável por no máximo uma aresta de retorno na subárvore):
-\begin{equation}
-\mathrm{low}[u] = \min \left( \mathrm{tin}[u], \, \min_{(u, v) \in E_{\text{árv}}} \mathrm{low}[v], \, \min_{(u, v) \in E_{\mathrm{ret}}} \mathrm{tin}[v] \right).
-\end{equation}
-
-As condições de corte são avaliadas diretamente:
+O algoritmo mantém os marcadores inteiros $\mathrm{tin}[u]$ (tempo de descoberta) e $\mathrm{low}[u]$ (menor $\mathrm{tin}$ alcançável via arestas de retorno da subárvore). As condições de corte são avaliadas diretamente:
 \begin{itemize}
-  \item A aresta de árvore $(u, v)$ é \textbf{ponte} se e somente se $\mathrm{low}[v] > \mathrm{tin}[u]$, comprovando a ausência de rota alternativa para ancestrais de $u$.
-  \item O vértice $u$ é \textbf{articulação} se for a raiz da DFS com pelo menos dois filhos, ou se não for raiz e possuir filho $v$ tal que $\mathrm{low}[v] \ge \mathrm{tin}[u]$.
+  \item Uma aresta de árvore $(u, v)$ é \textbf{ponte} se e somente se $\mathrm{low}[v] > \mathrm{tin}[u]$, comprovando ausência de rota alternativa para ancestrais de $u$.
+  \item Um vértice $u$ é \textbf{articulação} se for a raiz da DFS com pelo menos dois filhos, ou se não for raiz e possuir filho $v$ tal que $\mathrm{low}[v] \ge \mathrm{tin}[u]$.
 \end{itemize}
-
-A implementação foi concebida de forma \textbf{iterativa com pilha explícita}, simulando a pós-ordem de recursão e operando estritamente em $O(V + E)$ de tempo e $O(V)$ de espaço auxiliar. Epidemiologicamente, a identificação de pontes indica rotas aéreas exclusivas cuja interrupção fragmenta a transmissão entre continentes.
+Implementado de forma \textbf{iterativa com pilha explícita} para garantir estabilidade operacional, o método identifica rotas aéreas ou conexões cuja interrupção sanitária isola continentes da frente epidêmica.
 
 \subsection{Métricas Topológicas e Centralidade de Intermediação}
 
-O módulo \texttt{core/analysis/metrics.py} computa as propriedades macroscópicas da rede:
-
-\subsubsection{Grau Médio e Coeficiente de Agrupamento}
-O grau médio $\langle k \rangle = \frac{2E}{V}$ é calculado em $O(V + E)$. O agrupamento local mede a transitividade entre contatos de um nó $u$:
-\begin{equation}
-C_u = \frac{2 \sum_{v, w \in N(u), v < w} A_{vw}}{k_u (k_u - 1)} \quad (C_u = 0 \text{ se } k_u < 2),
-\end{equation}
-sendo computado em $O(\sum_{v} k_v^2)$ via intersecção de vizinhanças. A média $\langle C \rangle = \frac{1}{V} \sum_{u} C_u$ evidencia o regime de mundo pequeno da rede.
-
-\subsubsection{Centralidade de Intermediação de Brandes (Exata vs. Amostrada)}
-A intermediação quantifica o controle de nós sobre os caminhos mínimos da rede:
-\begin{equation}
-C_B(v) = \sum_{s \neq v \neq t \in V} \frac{\sigma_{st}(v)}{\sigma_{st}}.
-\end{equation}
-
-A formulação exata de Brandes opera em $O(V(V + E))$, sendo computacionalmente proibitiva para execução interativa com $V = 8.000$. Implementou-se, portanto, a \textbf{intermediação aproximada por amostragem}: avaliam-se $k = 25$ pivôs uniformemente distribuídos com semente determinística, escalando a métrica por $V / k$:
-\begin{equation}
-\tilde{C}_B(v) = \frac{V}{k} \sum_{s \in S_{\mathrm{amostra}}} \sum_{t \neq s, t \neq v} \frac{\sigma_{st}(v)}{\sigma_{st}}.
-\end{equation}
-
-A abordagem reduz a complexidade para $O(k(V + E))$, permitindo atualização em tempo real na interface com preservação da hierarquia dos principais centros de conexão.
+O módulo \texttt{core/analysis/metrics.py} computa as propriedades estruturais da malha:
+\begin{itemize}
+  \item \textbf{Grau Médio e Agrupamento:} o grau médio $\langle k \rangle = 2E/V$ é computado em $O(V + E)$. O coeficiente de agrupamento local $C_u = \frac{2 e_u}{k_u (k_u - 1)}$ avalia a formação de cliques sociais, sendo calculado em $O(\sum k_v^2)$ via intersecção de vizinhanças; a média $\langle C \rangle = \frac{1}{V}\sum C_u$ confirma o regime de mundo pequeno da rede.
+  \item \textbf{Intermediação de Brandes (Exata vs. Amostrada):} a centralidade $C_B(v) = \sum_{s \neq v \neq t} \frac{\sigma_{st}(v)}{\sigma_{st}}$ mede o tráfego de caminhos mínimos que atravessam $v$. Como a formulação exata de Brandes opera em $O(V(V + E))$ --- inviável para execução interativa com $V = 8.000$ ---, implementou-se a \textbf{intermediação aproximada por amostragem}: avaliam-se $k = 25$ pivôs uniformes com semente determinística, escalando por $V/k$:
+  \begin{equation}
+  \tilde{C}_B(v) = \frac{V}{k} \sum_{s \in S_{\mathrm{amostra}}} \sum_{t \neq s, t \neq v} \frac{\sigma_{st}(v)}{\sigma_{st}}.
+  \end{equation}
+  A abordagem reduz o custo para $O(k(V + E))$, permitindo atualização em tempo real no painel mantendo a hierarquia dos principais centros de conexão.
+\end{itemize}
 
 \subsection{Detecção de Comunidades por Propagação de Rótulos (LPA)}
 
-Para delimitar agrupamentos geopolíticos e de tráfego aéreo coesos sem os custos proibitivos de modularidade, adotou-se o algoritmo LPA (\emph{Label Propagation Algorithm})~\cite{raghavan2007} em \texttt{core/analysis/communities.py}. Operando sobre o grafo contraído por país, cada entidade inicia com rótulo próprio ($L_i^{(0)} = i$) e, a cada passo, assume assincronamente a comunidade dominante de sua vizinhança ponderada:
-\begin{equation}
-L_i^{(t)} = \operatorname{argmax}_l \sum_{j \in N(i), L_j = l} W_{ij},
-\end{equation}
-onde $W_{ij}$ representa o fluxo agregado de voos. Desempates lexicográficos rígidos garantem convergência estável em até $t_{\max} = 30$ iterações, operando em tempo quase-linear $O(t_{\max}(V + E))$ e particionando a malha em blocos epidemiológicos regionais coerentes.
+Para particionar a malha em blocos geopolíticos sem o custo proibitivo da otimização de modularidade, adotou-se o algoritmo LPA (\emph{Label Propagation Algorithm})~\cite{raghavan2007} em \texttt{core/analysis/communities.py}. Sobre o grafo contraído por país, cada entidade inicia com rótulo próprio ($L_i^{(0)} = i$) e adota assincronamente a comunidade dominante de sua vizinhança ponderada: $L_i^{(t)} = \operatorname{argmax}_l \sum_{j \in N(i), L_j = l} W_{ij}$, onde $W_{ij}$ é o fluxo de voos. Desempates lexicográficos rígidos garantem estabilidade, convergindo em $O(t_{\max}(V + E))$ com $t_{\max} \le 30$ e delimitando super-hubs regionais.
 
 \subsection{Quadro Comparativo de Complexidade Assintótica}
 
-A Tabela~\ref{tab:complexidade_algoritmos} consolida as garantias assintóticas de todas as operações de rede desenvolvidas no projeto.
+A Tabela~\ref{tab:complexidade_algoritmos} consolida as garantias de complexidade temporal e espacial das estruturas e algoritmos implementados.
 
 \begin{table}[!ht]
 \centering
@@ -469,7 +408,40 @@ A adoção de vetores densos e listas nativas indexadas, associada a máscaras b
 \newpage
 \appendix
 
-\section{Apêndice: Wireframes e Catálogo de Telas da Ferramenta}
+\section{Apêndice A: Diagramas Arquiteturais e de Casos de Uso}
+\label{sec:apendice_diagramas}
+
+Este apêndice documenta em escala ampliada os diagramas de engenharia de software da modelagem conceitual (Seção~\ref{sec:modelagem}), garantindo plena legibilidade de todos os componentes, interfaces e fluxos de interação.
+
+\subsection{Diagrama de Componentes do Sistema}
+Apresenta o detalhamento das quatro camadas arquiteturais concêntricas (\texttt{ui}, \texttt{app}, \texttt{world/datasets} e \texttt{core}), suas interfaces e regras de dependência estrita em sentido único.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/uml_componentes.png}
+\caption{Diagrama de Componentes: arquitetura em quatro camadas concêntricas com dependência unidirecional.}
+\label{fig:componentes}
+\end{figure}
+
+\subsection{Diagramas de Casos de Uso da Aplicação}
+Documenta formalmente os atores, extensões (\texttt{<<extend>>}) e inclusões (\texttt{<<include>>}) para os fluxos de simulação computacional e de reprodução de pandemias históricas.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{figures/uc_simulacao.png}
+\caption{Diagrama de Casos de Uso: Fluxo de Simulação Estocástica (UC01 a UC14).}
+\label{fig:uc_sim}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{figures/uc_pandemias_reais.png}
+\caption{Diagrama de Casos de Uso: Fluxo de Pandemias Reais e Comparação Empírica (UC15 a UC21).}
+\label{fig:uc_real}
+\end{figure}
+
+\newpage
+\section{Apêndice B: Wireframes e Catálogo de Telas da Ferramenta}
 \label{sec:apendice_wireframes}
 
 Este apêndice reúne o catálogo de wireframes e especificações visuais elaborados durante o planejamento da interface com o usuário (Módulo~5). A inclusão destas telas em formato de apêndice permite documentar todo o processo de design e validação das interações do usuário, mantendo o corpo principal do artigo dentro do limite regulamentar de 12 a 15 páginas estipulado pela disciplina.
