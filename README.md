@@ -18,6 +18,7 @@ O sistema modela a população mundial como um único grafo ponderado e não dir
 > | **Planejamento, Modelagem e Diagramas** | [docs/planning-doc/planejamento_e_modelagem_simulador_epidemias.md](docs/planning-doc/planejamento_e_modelagem_simulador_epidemias.md) |
 > | **Slides da Apresentação** | [PDF no repositório](docs/presentation/Apresentacao-Simulador-Epidemia.pdf) · [Visualizar no Canva](https://www.canva.com/design/DAHbju7hb8g/jVGAW7_OEiGi92lMJdjmcA/edit) |
 > | **Vídeo de Apresentação do Sistema** | [Assistir no Google Drive](https://drive.google.com/drive/folders/1TwYaPEytM0kT66rssrmrflYYrIWqJTVG?usp=drive_link) |
+> | **Repositório Público (GitHub)** | [github.com/Joao-Prado0/Graph-Epidemic-Simulator](https://github.com/Joao-Prado0/Graph-Epidemic-Simulator) |
 
 ---
 
