@@ -54,7 +54,7 @@ A ferramenta é demonstrativa: o usuário configura o cenário antes de iniciar 
 
 \subsection{Visão geral da solução}
 
-O grafo unificado é construído em três etapas. Cada país recebe um número de vértices proporcional, de forma sublinear, à sua população, com orçamento total fixo de vértices. No modelo, os vértices são posicionados no polígono de cada país e ligados por proximidade geométrica, o que forma uma rede geométrica aleatória. Entre países, as arestas vêm das rotas aéreas do dataset público OpenFlights, com peso de contágio derivado do número de rotas. A dinâmica segue um modelo compartimental com os estados S, E, I, R e D, mais as marcações de isolado e vacinado, avançando em passos de um dia. O motor grava o estado de cada vértice a cada passo e a interface apenas reproduz essa linha do tempo, de modo que os fluxos de simulação e de pandemias reais compartilham o mesmo \emph{player}. A aplicação foi desenvolvida em Python com PySide6, sem bibliotecas prontas de grafos. O NetworkX é usado somente no \emph{benchmark} de desempenho.
+O grafo unificado é construído em três etapas. Cada país recebe um número de vértices proporcional, de forma sublinear, à sua população, com orçamento total fixo de vértices. No modelo, os vértices são posicionados no polígono de cada país e ligados por proximidade geométrica, o que forma uma rede geométrica aleatória. Entre países, as arestas vêm das rotas aéreas do dataset público OpenFlights~\cite{openflights}, com peso de contágio derivado do número de rotas. A dinâmica segue um modelo compartimental com os estados S, E, I, R e D, mais as marcações de isolado e vacinado, avançando em passos de um dia. O motor grava o estado de cada vértice a cada passo e a interface apenas reproduz essa linha do tempo, de modo que os fluxos de simulação e de pandemias reais compartilham o mesmo \emph{player}. A aplicação foi desenvolvida em Python com PySide6, sem bibliotecas prontas de grafos. O NetworkX é usado somente no \emph{benchmark} de desempenho.
 
 \subsection{Organização do artigo}
 
@@ -78,7 +78,7 @@ Como impor o piso diretamente violaria o orçamento, um algoritmo iterativo fixa
 
 \subsubsection{Rede Geométrica Interna e Grade Espacial 2D}
 
-As coordenadas de cada vértice são sorteadas no polígono territorial do país (\emph{Natural Earth}, 50m). Dois nós $u, v \in V_i$ recebem uma aresta se a distância euclidiana não excede o raio adaptativo:
+As coordenadas de cada vértice são sorteadas no polígono territorial do país (\emph{Natural Earth}~\cite{natural_earth}, 50m). Dois nós $u, v \in V_i$ recebem uma aresta se a distância euclidiana não excede o raio adaptativo:
 
 \begin{equation}
 r_i \approx \sqrt{\frac{\bar{d}_{\mathrm{ef}}}{\pi \cdot \rho_i}}, \qquad \rho_i = \frac{n_i}{\mathrm{Area}_i}, \quad \bar{d}_{\mathrm{ef}} = \min(\bar{d},\, n_i - 1)
@@ -235,7 +235,7 @@ Em redes heterogêneas, $R_0$ não é igual a $\beta/\gamma$. Por isso, $\beta$ 
 
 \subsection{Dados reais}
 
-Os dados históricos vêm de quatro fontes: o \emph{Our World in Data}~\cite{owid_covid_2023} fornece a população e os dados mestres de COVID-19; a base da JHU~\cite{jhu_kaggle_covid} traz os casos de COVID-19; SARS, H1N1 e Ebola vêm de conjuntos curados no Kaggle~\cite{kaggle_sars,kaggle_h1n1,kaggle_ebola}; as rotas e os aeroportos vêm da base OpenFlights; e os polígonos dos países vêm da Natural Earth, na escala 1:50m. O pipeline padroniza os nomes para códigos ISO 3166-1 alfa-3, descarta agregados não nacionais e reúne os territórios ultramarinos ao país-mãe. Cada série territorial recebe calendário diário contínuo, preenchimento pelo último valor válido e a função \texttt{cummax}, para que o acumulado nunca diminua antes de ser somado ao país. Há ainda uma regra específica para a Libéria no Ebola, que mantém, por data, a linha de maior número de casos. Recuperados só existem na série da SARS, a única com esse registro.
+Os dados históricos vêm de quatro fontes: o \emph{Our World in Data}~\cite{owid_covid_2023} fornece a população e os dados mestres de COVID-19; a base da JHU~\cite{jhu_kaggle_covid} traz os casos de COVID-19; SARS, H1N1 e Ebola vêm de conjuntos curados no Kaggle~\cite{kaggle_sars,kaggle_h1n1,kaggle_ebola}; as rotas e os aeroportos vêm da base OpenFlights~\cite{openflights}; e os polígonos dos países vêm da Natural Earth~\cite{natural_earth}, na escala 1:50m. O pipeline padroniza os nomes para códigos ISO 3166-1 alfa-3, descarta agregados não nacionais e reúne os territórios ultramarinos ao país-mãe. Cada série territorial recebe calendário diário contínuo, preenchimento pelo último valor válido e a função \texttt{cummax}, para que o acumulado nunca diminua antes de ser somado ao país. Há ainda uma regra específica para a Libéria no Ebola, que mantém, por data, a linha de maior número de casos. Recuperados só existem na série da SARS, a única com esse registro.
 
 \subsection{Cenário regional}
 
@@ -389,9 +389,9 @@ Como trabalhos futuros, destacam-se: (i) a inclusão de geradores topológicos l
 O projeto foi executado de forma modular e colaborativa em cinco frentes coordenadas:
 
 \begin{itemize}
-  \item \textbf{Luiz Felipe Ribeiro Souza (M1):} modelagem do grafo unificado, alocação iterativa populacional ($n_{\min} = 12$), rede geométrica 2D, Dijkstra com distância efetiva, travessias e sementes determinísticas SHA-256.
-  \item \textbf{João Prado Campos (M3):} motor estocástico SEIRD diário, calibração iterativa de $\beta$, parametrização de intervenções (quarentena e vacina), buffer de estados de 1 byte/nó e protocolo estrutural \texttt{Timeline}.
+  \item \textbf{João Prado Campos (M1):} modelagem do grafo unificado, alocação iterativa populacional ($n_{\min} = 12$), rede geométrica 2D, Dijkstra com distância efetiva, travessias e sementes determinísticas SHA-256.
   \item \textbf{Fillipe Gabriel Costa Araujo (M2):} algoritmo de Tarjan iterativo para pontes e articulações em tempo linear, detecção de comunidades por LPA, métricas de rede e suite de \emph{benchmarks} contra o \emph{NetworkX}.
+  \item \textbf{Luiz Felipe Ribeiro Souza (M3):} motor estocástico SEIRD diário, calibração iterativa de $\beta$, parametrização de intervenções (quarentena e vacina), buffer de estados de 1 byte/nó e protocolo estrutural \texttt{Timeline}.
   \item \textbf{Henrique Pereira Resende Rocha (M4):} pipeline de dados offline com 135 aliases e 229 soberanias, resolução de anomalias no antimeridiano, carregadores em biblioteca padrão, \texttt{RealTimeline} e comparador quantitativo (MSE/picos, RF14).
   \item \textbf{Daniel Bony Costa Garcia (M5):} interface gráfica em PySide6/Qt, renderização em lote via \texttt{QPainter} com histerese de escala, gráficos em tempo real com \texttt{pyqtgraph}, controlador de reprodução e diálogos de exportação.
 \end{itemize}
