@@ -9,6 +9,16 @@ Aplicação desktop em Python para **simulação estocástica de epidemias em gr
 
 O sistema modela a população mundial como um único grafo ponderado e não direcionado ($N = 8.000$ vértices distribuídos entre $229$ países), integrando difusão local por proximidade geométrica e disseminação internacional via malha aérea real (*OpenFlights*). Toda a estrutura de grafos e os algoritmos analíticos foram **implementados do zero pela equipe**, sem bibliotecas externas de grafos no código de produção.
 
+> [!IMPORTANT]
+> ### Entregáveis e Documentação do Trabalho
+>
+> | Entregável | Acesso |
+> |---|---|
+> | **Artigo Científico (SBC / LaTeX)** | [docs/latex-article/main.pdf](docs/latex-article/main.pdf) |
+> | **Planejamento, Modelagem e Diagramas** | [docs/planning-doc/planejamento_e_modelagem_simulador_epidemias.md](docs/planning-doc/planejamento_e_modelagem_simulador_epidemias.md) |
+> | **Slides da Apresentação** | [PDF no repositório](docs/presentation/Apresentacao-Simulador-Epidemia.pdf) · [Visualizar no Canva](https://www.canva.com/design/DAHbju7hb8g/jVGAW7_OEiGi92lMJdjmcA/edit) |
+> | **Vídeo de Apresentação do Sistema** | [Assistir no Google Drive](https://drive.google.com/drive/folders/1TwYaPEytM0kT66rssrmrflYYrIWqJTVG?usp=drive_link) |
+
 ---
 
 ## Principais Funcionalidades
@@ -113,7 +123,8 @@ Graph-Epidemic-Simulator/
 ├── benchmarks/              # Comparativos de desempenho contra NetworkX
 ├── docs/
 │   ├── latex-article/       # Artigo científico completo (LaTeX + PDF + figuras)
-│   └── planning-doc/        # Documento de planejamento, modelagem e diagramas
+│   ├── planning-doc/        # Documento de planejamento, modelagem e diagramas
+│   └── presentation/        # Slides da apresentação (PDF)
 ├── pyproject.toml           # Metadados do pacote, pytest e regras do Ruff
 ├── requirements.txt         # Dependências de execução
 └── requirements-dev.txt     # Dependências de desenvolvimento, testes e benchmark
@@ -171,15 +182,6 @@ pytest
 ruff check .
 ruff format --check .
 ```
-
----
-
-## Documentação Completa
-
-Para aprofundamento matemático, análise de complexidade, validação empírica, diagramas UML completos e *wireframes*, consulte os documentos principais do projeto:
-
-- **Artigo Científico (PDF):** [docs/latex-article/main.pdf](docs/latex-article/main.pdf)
-- **Documento de Planejamento e Modelagem:** [docs/planning-doc/planejamento_e_modelagem_simulador_epidemias.md](docs/planning-doc/planejamento_e_modelagem_simulador_epidemias.md)
 
 ---
 
